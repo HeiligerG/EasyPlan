@@ -1,0 +1,123 @@
+# Verhaltenskodex für Mitwirkende an EasyPlan
+
+Willkommen bei **EasyPlan (Simple Cash Planner)** – einer kleinen, self-host­ed Webanwendung zur Planung wiederkehrender Fixkosten und Einnahmen. Wir freuen uns über Beiträge in Form von Issues, Pull Requests, Dokumentation, Übersetzungen oder Sicherheitsberichten.
+
+---
+
+## 1. Respektvoller Umgang
+
+- **Sei freundlich und sachlich.** Viele Mitwirkende beschäftigen sich mit persönlichen Finanzdaten und möchten die Anwendung für sich und andere verbessern. Konstruktive Kritik ist willkommen, persönliche Angriffe sind es nicht.
+- **Hilf anderen.** Wenn du eine Frage beantworten oder ein Problem erklären kannst, tu es gerne.
+- **Akzeptiere unterschiedliche Erfahrungsstufen.** Es gibt keine „dummen“ Fragen.
+
+---
+
+## 2. Git-Workflow
+
+Der Hauptbranch ist `master`. Direkte Commits oder Pushes auf `master` sind **nicht erlaubt**.
+
+### 2.1 Feature-Branches
+
+Erstelle für jede Änderung einen eigenen Branch:
+
+```
+feat/kurze-beschreibung
+fix/kurze-beschreibung
+docs/kurze-beschreibung
+refactor/kurze-beschreibung
+chore/kurze-beschreibung
+```
+
+Beispiel:
+
+```bash
+git checkout -b fix/projection-month-end
+```
+
+### 2.2 Commits
+
+- Verwende [Conventional Commits](https://www.conventionalcommits.org/de/), z. B. `feat(projection): handle month-end clamping`.
+- Halte Commits klein und thematisch fokussiert.
+- Vermeide das Einchecken von generierten Dateien oder temporären Notizen.
+
+### 2.3 Tests & Builds vor dem Push
+
+```bash
+go test ./...
+go vet ./...
+go build ./...
+```
+
+Stelle sicher, dass das Docker-Image gebaut werden kann:
+
+```bash
+docker build -t cashplanner:dev .
+```
+
+### 2.4 Merge
+
+Nach Review wird der Feature-Branch mit einem **non-fast-forward Merge** integriert:
+
+```bash
+git checkout master
+git merge --no-ff fix/projection-month-end -m "Merge branch 'fix/projection-month-end' into master"
+```
+
+Anschließend kann der Branch lokal gelöscht werden:
+
+```bash
+git branch -d fix/projection-month-end
+```
+
+---
+
+## 3. Qualitätsanspruch
+
+- Halte dich an `gofmt`, `go vet` und die Empfehlungen des gewählten Linters (z. B. `golangci-lint`).
+- Schreibe Unit- und Integrationstests, insbesondere für die Wiederholungslogik, die Projektion und das Reservensystem.
+- Halte öffentliche APIs rückwärtskompatibel, sofern kein Major-Release geplant ist.
+
+---
+
+## 4. Sicherheit & Datenschutz
+
+Da EasyPlan mit persönlichen Finanzdaten umgeht, gilt besondere Sorgfalt:
+
+- **Sicherheitslücken** dürfen **nicht** öffentlich gemeldet werden. Schreibe stattdessen an **[maintainer@example.org]** (PGP-Schlüssel siehe Repository).
+- Verwende in Issues, Tests und Beispielen **niemals echte Kontostände, Kontonummern oder andere personenbezogene Daten**. Erfinde plausible Testwerte.
+- Es dürfen **keine Geheimnisse, API-Keys oder Zugangsdaten** eingecheckt werden.
+- Diskutiere Änderungen, die externe Dienste (z. B. Bank-APIs) einführen würden, **vorab** in einem Issue. Das Konzept lehnt solche Integrationen für Version 1 bewusst ab.
+
+---
+
+## 5. Dokumentation
+
+- Aktualisiere `Konzept.md`, `README.md` und ggf. das Wiki, wenn sich Verhalten, Datenmodell oder Konfiguration ändern.
+- API-Dokumentation wird aus dem Code generiert (z. B. via `swaggo`); halte Doc-Kommentare aktuell.
+- Antworten, Issues und Diskussionen können in Deutsch oder Englisch erfolgen. Commit-Messages bevorzugt in Englisch.
+
+---
+
+## 6. Versionierung & Releases
+
+- Es gilt [Semantic Versioning](https://semver.org/) (`MAJOR.MINOR.PATCH`).
+- Vor einem Release wird ein Changelog-Eintrag erstellt und das Docker-Image nach `ghcr.io/<owner>/cashplanner:<tag>` veröffentlicht.
+
+---
+
+## 7. Lizenz
+
+Mit deinem Beitrag stimmst du zu, dass dein Beitrag unter der im Repository hinterlegten Lizenz veröffentlicht wird.
+
+---
+
+## 8. Kontakt
+
+Fragen, Feedback oder Sicherheitsmeldungen:
+
+- Allgemein: via Issue oder Diskussion
+- Sicherheit: **[maintainer@example.org]**
+
+---
+
+Vielen Dank, dass du EasyPlan besser machst!
