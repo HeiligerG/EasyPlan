@@ -136,6 +136,20 @@ golangci-lint run
 7. **Sicherheit**: Sicherheitslücken niemals öffentlich, sondern per E‑Mail an den Maintainer melden (siehe `CODE_OF_CONDUCT`).
 8. **Sprache**: Antworten und Commit‑Subjects auf Deutsch, Code‑Kommentare und Identifier auf Englisch.
 
+## Proaktive Verbesserungen & globale Patterns
+
+Dieses Projekt dient **nicht nur** als Endprodukt, sondern auch als **Quelle für wiederverwendbare globale Konfigurationen** (Skills, MCPs, Workflows, Regeln), die aus den hier gemachten Erfahrungen entstehen. Andere Projekte sollen von diesen Erkenntnissen profitieren, ohne sie neu erarbeiten zu müssen.
+
+- Der Agent erkennt generalisierbare Patterns und **schlägt proaktiv** vor, sie als globalen Skill, MCP, Workflow oder Regel anzulegen.
+- Konkrete Vorgehensweise und Auslöser siehe `.kilo/workflow/extract-global-patterns.md`.
+- Zielpfade für extrahierte Patterns:
+  - Globale Skills → `~/.config/kilo/skills/<name>/SKILL.md`
+  - Globale MCPs → `~/.config/kilo/mcp.json` oder `.kilo/mcp.json`
+  - Globale Regeln → `~/.config/kilo/rules/` oder `.kilo/rules/`
+  - Lokale Workflows → `.kilo/workflow/<name>.md`
+- Vorschläge immer **mit Begründung und konkretem Pfad** machen und vor dem Anlegen bestätigen lassen.
+- Im Commit‑Body vermerken, wenn ein Pattern aus EasyPlan in einen globalen Skill/MCP/Workflow überführt wurde.
+
 ## Definition of Done
 
 Ein Task gilt als erledigt, wenn:
