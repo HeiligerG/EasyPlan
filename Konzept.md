@@ -361,13 +361,98 @@ Das Layout ist Mobile‑first, eigenes CSS, HTMX für partielle Aktualisierungen
 - Einnahmen‑/Kontostands‑Tracking
 - Bank‑APIs, Kreditkarten‑Sync, CSV‑Import von Banken
 - Mehrere Benutzer, Teams, Rollen
-- Push‑Benachrichtigungen, AI‑Assistent
+- AI‑Assistent
 - Komplexe Charts, doppelte Buchhaltung
 - Multi‑Currency, Wechselkurse, Crypto
 
 ---
 
-## 19. Sprint‑Plan
+## 19. Benachrichtigungen
+
+Die App soll den Benutzer aktiv über anstehende Ereignisse und kritische Zustände informieren, ohne dass er die Seite öffnen muss. Ziel ist ein einziger, klarer **Outbound‑Webhook**, der von beliebigen Empfängern konsumiert werden kann.
+
+### 19.1 Architektur
+
+```
+Notificator
+  ├─ Eventquelle   (z. B. „Eintrag fällig in 3 Tagen“, „Reserve überschritten“)
+  ├─ Dispatcher    (formatiert JSON, retry, rate‑limit)
+  └─ Targets       (Gotify, Discord, Telegram, ntfy.sh, WhatsApp‑Bridge, …)
+```
+
+Der Notificator ist ein eigenes Package `internal/notify`, das über ein Interface angebunden ist. Pro Event wird eine `Notification`-Struct erzeugt:
+
+```
+type Notification struct {
+    Event     string    // "entry.due_soon"
+    Account   string
+    Title     string
+    Body      string
+    Amount    int64
+    DueDate   time.Time
+    Severity  string    // info | warning | critical
+}
+```
+
+### 19.2 Auslöser (V1)
+
+| Auslöser                  | Schwellwert (einstellbar) | Severity |
+|---------------------------|---------------------------|----------|
+| Eintrag in X Tagen fällig | `due_soon_days` (Default 3)| info     |
+| Reserve überschritten     | pro Konto `wish_buffer`   | warning  |
+| Wunsch‑Puffer stark überschritten | Faktor 1,5            | critical |
+| Wöchentliche Zusammenfassung | Sonntag 18:00 lokal      | info     |
+
+### 19.3 Versand‑Kanäle
+
+Vorrangig wird **Gotify** (self‑hosted, klein, kostenlos) als Ziel unterstützt, da keine externen Drittanbieter benötigt werden. Zusätzlich werden gängige Webhook‑Ziele per einfachem HTTP‑POST unterstützt:
+
+| Kanal      | URL‑Schema                              | Auth               |
+|------------|-----------------------------------------|--------------------|
+| Gotify     | `https://gotify.example.com/message?token=…` | Header `X-Gotify-Key` |
+| ntfy.sh    | `https://ntfy.sh/<topic>`               | optional Basic Auth |
+| Discord    | `https://discord.com/api/webhooks/<id>/<token>` | – |
+| Telegram   | `https://api.telegram.org/bot<token>/sendMessage` | – |
+| WhatsApp   | Bridge (z. B. `wasabi`, `whatsapp-web.js`) | Custom |
+| Generic    | beliebiger Webhook                      | optional Header    |
+
+### 19.4 Konfiguration
+
+In `settings`:
+
+```
+notify_enabled        = true
+notify_target_kind    = gotify   # gotify|ntfy|discord|telegram|whatsapp|generic
+notify_target_url     = https://gotify.example.com/message?token=…
+notify_target_token   = …
+notify_due_soon_days  = 3
+notify_weekly_summary = true
+```
+
+### 19.5 Sicherheit
+
+- Webhook‑URL und Token werden ausschließlich serverseitig gespeichert (`/data`), nicht im Browser.
+- TLS‑Pflicht für alle externen Ziele; HTTP wird abgelehnt.
+- Retry mit exponentiellem Backoff (max 3 Versuche), Fehler werden geloggt, nicht an Benutzer gesendet.
+- Rate‑Limit: maximal 1 Benachrichtigung pro Event und Tag.
+
+### 19.6 UI
+
+Einstellungen‑Seite bietet:
+
+- An/Aus‑Schalter für Benachrichtigungen
+- Dropdown Ziel‑Typ
+- URL‑ und Token‑Eingabe (Passwort‑Feld)
+- „Test‑Nachricht senden“‑Button
+- Liste der letzten 20 gesendeten Benachrichtigungen (Status: ok/fehler)
+
+### 19.7 Datenschutz
+
+Benachrichtigungen enthalten **niemals** den aktuellen Kontostand oder andere vertrauliche Detaildaten, sondern nur aggregierte Beträge und Fälligkeitstage.
+
+---
+
+## 20. Sprint‑Plan
 
 | Sprint | Ziel                              | Tasks |
 |--------|-----------------------------------|-------|
@@ -378,6 +463,7 @@ Das Layout ist Mobile‑first, eigenes CSS, HTMX für partielle Aktualisierungen
 | **4 – Timeline & Warnungen** | Vorausschau & Sicherheit | 1. Timeline‑Service (`Timeline(from, to)`).<br>2. Timeline‑Ansicht (Monats­gruppierung).<br>3. Warnungs­logik, wenn `ReserveRequired` einen pro Konto hinterlegten Wunsch‑Puffer überschreitet. |
 | **5 – Backup & Export** | Datenmigration | 1. SQLite‑Backup‑API (`VACUUM INTO`).<br>2. UI‑Button „Backup herunterladen“.<br>3. JSON‑Export, CSV‑Export.<br>4. Restore‑Funktion mit Validierung und Bestätigungs­dialog. |
 | **6 – Hardening & Release** | Produktionsreife | 1. Distroless‑Image, Non‑Root, Read‑Only FS.<br>2. Healthcheck‑Endpoint `/health`.<br>3. Reverse‑Proxy‑Beispiele (Caddy, Traefik).<br>4. Doku: Installation, Update, Backup‑Strategie.<br>5. Erstes Release `v1.0.0`. |
-| **7 – Optional** | Komfort | 1. PWA‑Manifest, Offline‑Shell.<br>2. Dark Mode.<br>3. CSV‑Import von Ausgaben‑Listen.<br>4. API‑Tokens für externe Skripte. |
+| **7 – Benachrichtigungen** | Aktive Erinnerungen | 1. `internal/notify`‑Package mit `Notifier`‑Interface.<br>2. Targets: Gotify, ntfy.sh, Discord, Telegram, Generic Webhook.<br>3. Eventquellen: `entry.due_soon`, `reserve.exceeded`, `weekly.summary`.<br>4. Retry‑Strategie (exponentielles Backoff) + Rate‑Limit.<br>5. Einstellungs‑Seite mit Test‑Button und Log.<br>6. TLS‑Prüfung, keine Klartext‑Tokens im Browser.<br>7. Dokumentation: Gotify‑Setup, Discord‑Webhook, Telegram‑Bot. |
+| **8 – Optional** | Komfort | 1. PWA‑Manifest, Offline‑Shell.<br>2. Dark Mode.<br>3. CSV‑Import von Ausgaben‑Listen.<br>4. API‑Tokens für externe Skripte. |
 
 Jeder Sprint endet mit einem Review auf dem `master`‑Branch über einen **non‑fast‑forward Merge** (`git merge --no-ff`) gemäß `CODE_OF_CONDUCT`.
