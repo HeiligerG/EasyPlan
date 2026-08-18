@@ -54,20 +54,39 @@ Stelle sicher, dass das Docker-Image gebaut werden kann:
 docker build -t cashplanner:dev .
 ```
 
-### 2.4 Merge
+### 2.4 Branch‑Hierarchie und Merge‑Reihenfolge
 
-Nach Review wird der Feature-Branch mit einem **non-fast-forward Merge** integriert:
+```
+master                       (immer auslieferbar)
+ │
+ └── sprint/<name>           (eine Sprint‑Branch pro Sprint)
+        ├── feat/<beschreibung>      (Task‑Branches)
+        ├── fix/<beschreibung>
+        └── docs/<beschreibung>
+```
+
+- Jeder Task wird auf einem eigenen **Task‑Branch** (z. B. `feat/<kurzbeschreibung>`) entwickelt.
+- Der Merge eines Task‑Branches erfolgt **niemals direkt auf `master`**, sondern zuerst mit `--no-ff` in die jeweilige **Sprint‑Branch** (`sprint/<name>`).
+- Nach Abschluss aller Tasks eines Sprints wird ein **Pull Request** von der Sprint‑Branch auf `master` erstellt, geprüft und per **non‑fast‑forward Merge** integriert.
+- Sub‑Branches werden nach erfolgreichem Merge sowohl lokal als auch remote gelöscht.
+
+**Beispiel für einen Task‑Abschluss:**
+
+```bash
+git checkout sprint/0-bootstrap
+git merge --no-ff feat/init-dockerfile -m "Merge branch 'feat/init-dockerfile' into sprint/0-bootstrap"
+git branch -d feat/init-dockerfile
+```
+
+**Beispiel für einen Sprint‑Abschluss:**
 
 ```bash
 git checkout master
-git merge --no-ff fix/projection-month-end -m "Merge branch 'fix/projection-month-end' into master"
+git merge --no-ff sprint/0-bootstrap -m "Merge branch 'sprint/0-bootstrap' into master"
+git branch -d sprint/0-bootstrap
 ```
 
-Anschließend kann der Branch lokal gelöscht werden:
-
-```bash
-git branch -d fix/projection-month-end
-```
+Die genauen Befehle, Namens­konventionen und Validierungen sind im projekt­übergreifenden Skill `git-workflow` dokumentiert und verbindlich.
 
 ---
 
