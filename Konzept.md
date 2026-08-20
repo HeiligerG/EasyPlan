@@ -1,1479 +1,469 @@
-# Konzept: Simple Cash Planner
+# Konzept: Simple Cash Planner (EasyPlan)
 
 ## 1. Ziel
 
-Eine extrem einfache Self-Hosted-Webanwendung zur Planung von wiederkehrenden Fixkosten und Einnahmen.
+Eine extrem einfache self‑hosted Webanwendung, die ausschließlich dabei hilft, monatliche, wöchentliche und tägliche Fixkosten vollständig abzuschätzen. Es werden **keine Einnahmen und kein Kontostand erfasst**. Die App beantwortet jederzeit drei Fragen:
 
-Die Anwendung ist **kein Haushaltsbuch** und **keine Buchhaltungssoftware**.
-
-Sie soll insbesondere nicht erfassen:
-
-* Einkäufe
-* einzelne Kartentransaktionen
-* Kategorien für Alltagsausgaben
-* Banktransaktionen
-* Belege
-* Budgets pro Kategorie
-* Vermögensentwicklung
-* Bank-APIs
-
-Stattdessen beantwortet sie hauptsächlich drei Fragen:
-
-1. Welche festen Zahlungen kommen als Nächstes?
-2. Wie viel Geld muss auf meinem Konto vorhanden sein?
-3. Wie viel Geld ist aktuell wirklich frei verfügbar?
+1. Wie viel Geld brauche ich pro Monat, Woche und Tag?
+2. Wie viel Geld muss auf welchem Konto (z. B. Lifestyle, Sparen, Steuern) mindestens vorhanden sein, um die nächsten Zahlungen sicher zu begleichen?
+3. Welche konkreten Zahlungen stehen als Nächstes an?
 
 ---
 
-# 2. Grundprinzip
+## 2. Grundprinzip
 
-Der Benutzer pflegt nur:
-
-* aktuellen Kontostand
-* wiederkehrende Einnahmen
-* wiederkehrende Ausgaben
-* einmalige zukünftige Ausgaben
+Der Benutzer pflegt ausschließlich **Ausgaben**. Jede Ausgabe wird einem Konto zugeordnet. Einnahmen und Kontostände werden bewusst nicht erfasst – die App berechnet rein aus den Verpflichtungen, wie viel Geld vorhanden sein muss.
 
 Beispiel:
 
-| Typ      | Name             |     Betrag | Wiederholung | Datum       |
+| Konto    | Name             |     Betrag | Wiederholung | Datum       |
 | -------- | ---------------- | ---------: | ------------ | ----------- |
-| Einnahme | Lohn             | +7'000 CHF | monatlich    | 25.         |
-| Ausgabe  | Miete            | -2'000 CHF | monatlich    | 1.          |
-| Ausgabe  | Krankenkasse     |   -450 CHF | monatlich    | 5.          |
-| Ausgabe  | Internet         |    -60 CHF | monatlich    | 15.         |
-| Ausgabe  | Autoversicherung | -1'200 CHF | jährlich     | 15. Februar |
-| Ausgabe  | Serafe           |   -335 CHF | jährlich     | 20. März    |
+| Lifestyle| Miete            | -2'000 CHF | monatlich    | 1.          |
+| Lifestyle| Krankenkasse     |   -450 CHF | monatlich    | 5.          |
+| Lifestyle| Internet         |    -60 CHF | monatlich    | 15.         |
+| Sparen   | Autoversicherung | -1'200 CHF | jährlich     | 15. Februar |
+| Steuern  | Serafe           |   -335 CHF | jährlich     | 20. März    |
 
-Der aktuelle Kontostand wird bei Bedarf manuell aktualisiert.
-
-Es ist daher egal, wofür sonst Geld ausgegeben wurde.
-
-Beispiel:
-
-Gestern:
-
-```
-Kontostand: 8'420 CHF
-```
-
-Heute wurden 300 CHF für irgendetwas ausgegeben.
-
-Der Benutzer ändert lediglich:
-
-```
-Kontostand: 8'120 CHF
-```
-
-Die gesamte Zukunftsberechnung wird automatisch neu berechnet.
+Das Vorzeichen wird bei der Anzeige gesetzt; intern werden ausschließlich **positive Beträge in Minor Units (Rappen)** gespeichert.
 
 ---
 
-# 3. Dashboard
+## 3. Dashboard
 
-Das Dashboard sollte die wichtigste Seite der gesamten Anwendung sein.
-
-Keine Chartsammlung und keine komplizierten Statistiken.
-
-Beispiel:
+Das Dashboard zeigt pro Konto den monatlichen, wöchentlichen und täglichen Bedarf sowie die nächsten anstehenden Zahlungen.
 
 ```
-CASH PLANNER
+EASYPLAN
 
-Kontostand
-CHF 8'120.00
-[ Kontostand aktualisieren ]
+Lifestyle
+  Monat:  2'510 CHF   Woche:   585 CHF   Tag:   84 CHF
+  Nächste:  Miete 01.09   -2'000 CHF
 
-──────────────────────────────
+Sparen
+  Monat:    100 CHF   Woche:    23 CHF   Tag:    3 CHF
+  Nächste:  Autoversicherung 15.02.2027   -1'200 CHF
 
-Reserviert
-CHF 3'420.00
+Steuern
+  Monat:     28 CHF   Woche:     6 CHF   Tag:    1 CHF
+  Nächste:  Serafe 20.03.2027   -335 CHF
 
-Frei verfügbar
-CHF 4'700.00
-
-──────────────────────────────
-
-Nächste Zahlung
-
-15. August
-Internet
-CHF 60.00
-
-──────────────────────────────
-
-Niedrigster erwarteter Kontostand
-nächste 90 Tage
-
-CHF 2'850.00
-am 24. September
-
-──────────────────────────────
-
-NÄCHSTE ZAHLUNGEN
-
-15.08   Internet                 -60
-25.08   Lohn                  +7'000
-01.09   Miete                 -2'000
-05.09   Krankenkasse            -450
-15.09   Internet                 -60
-25.09   Lohn                  +7'000
+Insgesamt
+  Monat:  2'638 CHF   Woche:   614 CHF   Tag:   88 CHF
 ```
+
+Darüber hinaus zeigt das Dashboard eine **30‑Tage‑Reserve‑Übersicht** pro Konto, siehe §8.
 
 ---
 
-# 4. Zwei unterschiedliche Kennzahlen
+## 4. Konten
 
-Die Anwendung sollte zwei Dinge bewusst voneinander unterscheiden.
+Konten dienen ausschließlich der Gruppierung von Ausgaben. Attribute:
 
-## Kontostand-Projektion
+- Name (z. B. „Lifestyle“, „Sparen“, „Steuern“)
+- Optionale Beschreibung
+- Sortier­reihenfolge für die Anzeige
+- Aktiv/Inaktiv
 
-Hier wird mathematisch berechnet, wie sich der Kontostand entwickelt.
-
-Beispiel:
-
-```
-Heute                      8'120
-Internet                    -60
-                           ─────
-15.08                      8'060
-
-Lohn                      +7'000
-                           ─────
-25.08                     15'060
-
-Miete                     -2'000
-                           ─────
-01.09                     13'060
-```
-
-Das beantwortet:
-
-> Reicht mein Geld zu jedem Zeitpunkt?
+Bei der Installation werden sinnvolle Standardkonten angelegt. Benutzer können weitere Konten hinzufügen oder deaktivieren.
 
 ---
 
-## Reserviertes Geld
+## 5. Arten von Einträgen
 
-Zusätzlich können zukünftige grosse Rechnungen anteilig berücksichtigt werden.
-
-Beispiel:
-
-```
-Autoversicherung
-1'200 CHF
-jährlich am 15. Februar
-```
-
-Die Anwendung kann daraus berechnen:
-
-```
-100 CHF / Monat Reserve
-```
-
-Dadurch ist dieses Geld gedanklich nicht mehr frei verfügbar.
-
-Beispiel:
-
-```
-Kontostand                 8'120
-benötigte Reserven        -3'420
-                          ──────
-tatsächlich frei          4'700
-```
-
----
-
-# 5. Arten von Einträgen
-
-Es sollte möglichst wenige Typen geben.
-
-## Wiederkehrende Einnahme
-
-Beispiele:
-
-* Lohn
-* Nebeneinkommen
-* regelmäßige Rückerstattung
-
-Attribute:
+### Wiederkehrende Ausgabe
 
 ```
 Name
-Betrag
+Konto
+Betrag (positiv)
 Startdatum
-Wiederholung
+Wiederholung (siehe §6)
 optional Enddatum
+Notizen
 ```
 
----
-
-## Wiederkehrende Ausgabe
-
-Beispiele:
-
-* Miete
-* Krankenkasse
-* Internet
-* Versicherungen
-* Hosting
-* Abonnements
-* Steuern
-
-Attribute:
+### Einmalige Ausgabe
 
 ```
 Name
-Betrag
-Fälligkeit
-Wiederholung
-Reserve ja/nein
-```
-
----
-
-## Einmalige Zahlung
-
-Beispiele:
-
-* Rechnung
-* Steuerrechnung
-* Reparatur
-* grössere Anschaffung
-
-Attribute:
-
-```
-Name
-Betrag
+Konto
+Betrag (positiv)
 Fälligkeitsdatum
-Reserve ja/nein
+Notizen
 ```
 
-Nach der Fälligkeit kann der Eintrag automatisch archiviert werden.
+Nach der Fälligkeit wird der Eintrag automatisch deaktiviert (`is_active = false`), bleibt aber für den Verlauf sichtbar.
 
 ---
 
-# 6. Wiederholungsregeln
+## 6. Wiederholungsregeln
 
-Für Version 1 reichen:
-
-```
-einmalig
-
-wöchentlich
-monatlich
-alle 2 Monate
-alle 3 Monate
-alle 6 Monate
-jährlich
-```
-
-Intern sollte das System trotzdem flexibel aufgebaut sein.
-
-Beispiel:
+Intern einheitlich:
 
 ```
-recurrence_unit = MONTH
-recurrence_interval = 1
+recurrence_unit     = { day, week, month, year, once }
+recurrence_interval = N (>0)
 ```
 
-oder:
+Version 1 unterstützt:
 
-```
-recurrence_unit = YEAR
-recurrence_interval = 1
-```
+- monatlich (`month`, `1`)
+- alle N Monate (`month`, `N`)
+- jährlich (`year`, `1`)
+- wöchentlich (`week`, `1`)
+- einmalig (`once`)
 
-Damit wären später beispielsweise auch folgende Regeln möglich:
-
-```
-alle 2 Jahre
-alle 4 Monate
-```
+Wiederholungen werden **deterministisch** aus `start_date` und `ends_on` berechnet; es werden keine einzelnen Termine persistiert. **Monatsende‑Regel:** Ist der gewählte Tag größer als der letzte Tag des Zielmonats, wird auf den letzten gültigen Tag des Monats verschoben (z. B. 31. → 28./29. Februar). Ein Schaltjahr wird korrekt behandelt.
 
 ---
 
-# 7. Projektion
+## 7. Perioden‑Berechnung
 
-Die Anwendung generiert aus den Regeln zukünftige Ereignisse.
-
-Standard:
+### Monatsbedarf
 
 ```
-12 Monate
+monthly_equivalent(entry) =
+    case recurrence_unit:
+        month: amount_minor * interval
+        year:  amount_minor * interval / 12
+        week:  amount_minor * interval * 4,345
+        once:  0  (wird im Fälligkeitsmonat addiert)
+
+monatlicher Bedarf (Konto) = Σ monthly_equivalent(entry)  + Σ einmaliger Beträge im aktuellen Monat
 ```
 
-Optional auswählbar:
+### Wochenbedarf
 
 ```
-30 Tage
-90 Tage
-6 Monate
-12 Monate
-24 Monate
+weekly = monthly / 4,345
 ```
 
-Beispiel:
-
-Aus:
+### Tagesbedarf
 
 ```
-Miete
-2'000 CHF
-jeden 1. des Monats
+daily = monthly / 30,4375
 ```
 
-entstehen intern:
-
-```
-01.09.2026   -2'000
-01.10.2026   -2'000
-01.11.2026   -2'000
-...
-```
-
-Diese müssen nicht in der Datenbank gespeichert werden.
-
-Sie können bei jeder Berechnung aus der Regel erzeugt werden.
+Pro Konto und gesamt.
 
 ---
 
-# 8. Wichtigste Berechnung
+## 8. Benötigte Mindest‑Reserve pro Konto
 
-Ausgangspunkt:
-
-```
-currentBalance
-```
-
-Danach werden alle zukünftigen Ereignisse chronologisch sortiert.
-
-Pseudo-Code:
+Zusätzlich zum Durchschnitt wird der **Mindestbedarf bis zu einem wählbaren Zeitfenster** berechnet:
 
 ```
-balance = currentBalance
-
-events = generateEvents(today, today + 12 months)
-
-sort(events by date)
-
-for event in events:
-    balance += event.amount
-
-    save projected balance
+reserve_window_days = 30 (einstellbar: 7, 30, 60, 90)
+reserve(account) = Σ amount_minor
+                   für alle Einträge dieses Kontos,
+                   deren nächste Fälligkeit <= today + reserve_window_days
 ```
 
-Anschliessend können berechnet werden:
+Anzeige:
 
 ```
-aktueller Kontostand
-
-niedrigster Kontostand
-
-Datum des niedrigsten Kontostands
-
-nächste Zahlung
-
-Summe Fixkosten pro Monat
-
-Summe Fixkosten pro Jahr
+Lifestyle – Reserve 30 Tage: 2'510 CHF
+Sparen    – Reserve 30 Tage:   100 CHF (nächste Fälligkeit erst in 180 Tagen)
 ```
+
+Eine Warnung erscheint, sobald die Reserve einen vom Benutzer pro Konto hinterlegten **Wunsch‑Puffer** (optional, in `settings`) überschreitet.
 
 ---
 
-# 9. Unterdeckungswarnung
+## 9. Timeline
 
-Sehr wichtig wäre eine einfache Warnung.
-
-Beispiel:
+Chronologische Ansicht aller anstehenden Zahlungen, gruppiert nach Monat:
 
 ```
-⚠ Unterdeckung erwartet
+August
+  15.   Internet        -60
 
-Am 15. Februar 2027 würde dein
-Kontostand auf
+September
+  01.   Miete          -2'000
+  05.   Krankenkasse     -450
+  15.   Internet          -60
 
--620 CHF
-
-fallen.
-
-Fehlender Betrag:
-620 CHF
+…
 ```
 
-Oder:
-
-```
-✓ Alle bekannten Verpflichtungen
-  der nächsten 12 Monate sind gedeckt.
-```
-
-Das ist wahrscheinlich eine der wertvollsten Funktionen der gesamten App.
+Die Timeline wird aus den Wiederholungsregeln für den gewählten Zeitraum (Standard 12 Monate) on‑the‑fly erzeugt.
 
 ---
 
-# 10. Reserve-System
+## 10. Datenmodell
 
-Das Reserve-System sollte optional sein.
-
-Ein Eintrag kann:
+### accounts
 
 ```
-Reserve: AUS
+id            uuid
+name          text
+description   text
+sort_order    int
+is_active     bool
+created_at    timestamp
+updated_at    timestamp
 ```
 
-oder
+### entries
 
 ```
-Reserve: AN
+id                  uuid
+name                text
+account_id          uuid (FK accounts)
+amount_minor        integer (>0)
+start_date          date
+recurrence_unit     text (day|week|month|year|once)
+recurrence_interval integer (>0, default 1)
+ends_on             date null
+notes               text
+is_active           bool
+created_at          timestamp
+updated_at          timestamp
 ```
 
-haben.
-
-Beispiel:
+### settings
 
 ```
-Autoversicherung
-CHF 1'200
-jährlich
-Reserve: AN
-```
-
-Das System kann den benötigten Betrag bis zur nächsten Fälligkeit berechnen.
-
-Dadurch lässt sich eine Kennzahl anzeigen:
-
-```
-aktueller Kontostand        8'120
-reservierter Betrag        3'420
-                           ─────
-frei verfügbar             4'700
-```
-
-Wichtig:
-
-"Reserviert" bedeutet nur eine rechnerische Reserve.
-
-Es findet keine echte Umbuchung statt.
-
----
-
-# 11. Manuelle Kontostand-Aktualisierung
-
-Die Aktualisierung sollte extrem schnell sein.
-
-Auf dem Dashboard:
-
-```
-Aktueller Kontostand
-
-[ 8'120.50 ]
-
-[ Aktualisieren ]
-```
-
-Optional:
-
-```
-zuletzt aktualisiert:
-07.08.2026 10:24
-```
-
-Mehr braucht es nicht.
-
----
-
-# 12. Architektur
-
-Für diese Anwendung würde ich bewusst eine sehr einfache Architektur wählen:
-
-```
-┌──────────────────────────────┐
-│          Browser             │
-│                              │
-│ Desktop / Mobile / PWA       │
-└──────────────┬───────────────┘
-               │ HTTPS
-               ▼
-┌──────────────────────────────┐
-│        Cash Planner          │
-│                              │
-│  Web UI                      │
-│  REST API                    │
-│  Business Logic              │
-│                              │
-│       ein Container          │
-└──────────────┬───────────────┘
-               │
-               ▼
-┌──────────────────────────────┐
-│          SQLite              │
-│                              │
-│ /data/cashplanner.db         │
-└──────────────────────────────┘
-```
-
-Kein:
-
-* Redis
-* RabbitMQ
-* PostgreSQL
-* Elasticsearch
-* Worker
-* Microservices
-* Message Queue
-
-Für diese Anwendung wäre das alles unnötige Komplexität.
-
----
-
-# 13. Empfohlener Tech-Stack
-
-## Backend
-
-Go
-
-Warum:
-
-* ein einzelnes Binary
-* sehr kleines Docker-Image
-* schnell
-* praktisch keine Runtime-Abhängigkeiten
-* sehr einfach zu deployen
-* langfristig wartbar
-* hervorragend für eine kleine Self-Hosted-Anwendung
-
----
-
-## Datenbank
-
-SQLite
-
-Datei:
-
-```
-/data/cashplanner.db
-```
-
-Vorteile:
-
-* keine separate Datenbank
-* Backup = Datei sichern
-* sehr zuverlässig
-* mehr als ausreichend für einen Benutzer
-* keine Datenbank-Konfiguration notwendig
-
-SQLite WAL sollte aktiviert werden.
-
----
-
-## Frontend
-
-Ich würde eine von zwei Varianten wählen.
-
-### Variante A – maximal simpel
-
-Go Templates + HTMX
-
-Vorteile:
-
-* nur ein Projekt
-* kein separates Frontend
-* praktisch kein JavaScript-Build-System
-* extrem kleines Image
-* sehr wartbar
-
-Meine Empfehlung für dieses Projekt.
-
-### Variante B – moderner
-
-Svelte / SvelteKit Frontend
-
-plus
-
-Go REST API
-
-Vorteile:
-
-* angenehmere interaktive Oberfläche
-* PWA einfacher
-* modernere UX
-
-Nachteil:
-
-* Node Build Pipeline
-* mehr Abhängigkeiten
-
-Für den tatsächlichen Funktionsumfang ist HTMX wahrscheinlich vollkommen ausreichend.
-
----
-
-# 14. Projektstruktur
-
-Beispielsweise:
-
-```
-cashplanner/
-│
-├── cmd/
-│   └── server/
-│       └── main.go
-│
-├── internal/
-│   ├── database/
-│   ├── expenses/
-│   ├── income/
-│   ├── recurrence/
-│   ├── projection/
-│   ├── reserves/
-│   └── web/
-│
-├── web/
-│   ├── templates/
-│   ├── static/
-│   └── icons/
-│
-├── migrations/
-│
-├── Dockerfile
-├── docker-compose.yml
-├── go.mod
-├── go.sum
-└── README.md
-```
-
----
-
-# 15. Datenmodell
-
-Eine einfache Tabelle reicht für fast alle finanziellen Einträge.
-
-## entries
-
-```
-id
-name
-type
-amount
-start_date
-recurrence_unit
-recurrence_interval
-reserve_enabled
-active
-notes
-created_at
-updated_at
-```
-
-type:
-
-```
-income
-expense
-```
-
-recurrence_unit:
-
-```
-once
-week
-month
-year
+key   text primary key
+value text
 ```
 
 Beispiel:
 
 ```
-id: 1
-name: "Miete"
-type: expense
-amount: 2000
-start_date: 2026-09-01
-recurrence_unit: month
-recurrence_interval: 1
-reserve_enabled: false
+projection_days        = 30
+currency               = CHF
+timezone               = Europe/Zurich
+default_reserve_window = 30
 ```
+
+Geldbeträge werden ausschließlich als **Minor Units (Rappen)** als `integer` gespeichert. `amount_minor` ist immer positiv; das Vorzeichen ergibt sich aus dem Eintragstyp (immer `expense`).
 
 ---
 
-## settings
+## 11. Service‑Schicht
 
-```
-key
-value
-```
+Die Berechnungslogik liegt in `internal/service` und ist rein (keine I/O‑Abhängigkeiten), deterministisch und vollständig testbar:
 
-Beispielsweise:
+- `MonthlyEquivalent(entry) int`
+- `PeriodSummary(accountID string) (month, week, day int)`
+- `ReserveRequired(accountID string, days int) int`
+- `Timeline(from, to time.Time) []Event`
 
-```
-currency = CHF
-projection_months = 12
-```
+HTTP‑Handler rufen diese Funktionen auf; spätere Schnittstellen (CLI, REST, Mobile) können dieselben Funktionen wiederverwenden.
 
 ---
 
-## balance
+## 12. Docker (Produktion und Entwicklung)
 
-Entweder nur:
+### Produktion
 
-```
-current_balance
-updated_at
-```
-
-oder besser eine kleine Historie:
+Multi‑Stage `Dockerfile`:
 
 ```
-id
-balance
-created_at
+Stage 1: golang:1.22 → go build -o /out/cashplanner ./cmd/server
+Stage 2: gcr.io/distroless/static-debian12
+         COPY /out/cashplanner /cashplanner
+         USER nonroot
+         EXPOSE 8080
+         HEALTHCHECK --interval=30s --timeout=3s CMD ["/cashplanner", "healthcheck"]
 ```
 
-Dann sieht man später zumindest:
+Ergebnis: kleines, statisch gelinktes Binary, Image < 20 MB. Persistiert wird ausschließlich `/data` (SQLite).
 
-```
-01.08   8'540 CHF
-07.08   8'120 CHF
-```
+`docker-compose.yml`:
 
-ohne einzelne Transaktionen kennen zu müssen.
-
-Das würde ich bevorzugen.
-
----
-
-# 16. Keine Floats für Geld
-
-Geldbeträge sollten intern niemals als Float gespeichert werden.
-
-Statt:
-
-```
-1234.50
-```
-
-wird gespeichert:
-
-```
-123450
-```
-
-also Rappen/Cents als Integer.
-
-Beispiel:
-
-```
-CHF 1'200.50
-```
-
-=
-
-```
-120050
-```
-
-Damit entstehen keine Rundungsfehler.
-
----
-
-# 17. API
-
-Obwohl die erste UI serverseitig gerendert werden kann, würde ich intern eine saubere API vorsehen.
-
-Beispiele:
-
-```
-GET    /api/entries
-POST   /api/entries
-GET    /api/entries/:id
-PUT    /api/entries/:id
-DELETE /api/entries/:id
-
-GET    /api/balance
-PUT    /api/balance
-
-GET    /api/projection
-
-GET    /api/dashboard
-```
-
-Dadurch könnte später problemlos eine:
-
-* Mobile App
-* CLI
-* Home Assistant Integration
-* iOS Shortcut
-* externe Integration
-
-darauf zugreifen.
-
----
-
-# 18. Docker-Image
-
-Ziel:
-
-```
-ghcr.io/<username>/cashplanner:latest
-```
-
-und versioniert:
-
-```
-ghcr.io/<username>/cashplanner:1.0.0
-ghcr.io/<username>/cashplanner:1.1.0
-ghcr.io/<username>/cashplanner:1.2.0
-```
-
-Das Image sollte alles enthalten.
-
-Nur `/data` muss persistent sein.
-
----
-
-# 19. Multi-Stage Docker Build
-
-Prinzip:
-
-```
-Stage 1
-Go-Anwendung kompilieren
-
-        ↓
-
-Stage 2
-minimales Runtime-Image
-```
-
-Dadurch kann das finale Image sehr klein bleiben.
-
-Beispielsweise:
-
-```
-golang:...
-     ↓
-  build
-     ↓
-distroless/alpine
-```
-
-Ich würde eher ein minimalistisches Debian/Distroless-Image verwenden, solange keine Shell im Container benötigt wird.
-
----
-
-# 20. Docker Compose
-
-Das gewünschte Deployment sollte am Ende ungefähr so simpel sein:
-
-```
+```yaml
 services:
-
   cashplanner:
-    image: ghcr.io/example/cashplanner:latest
-    container_name: cashplanner
-
+    image: ghcr.io/<owner>/cashplanner:1.0.0
     restart: unless-stopped
-
     ports:
-      - "8080:8080"
-
+      - "127.0.0.1:8080:8080"
     volumes:
       - ./data:/data
-
     environment:
       - TZ=Europe/Zurich
 ```
 
-Dann:
+Reverse Proxy (Caddy, Traefik, Nginx) übernimmt TLS und optional Authentifizierung.
 
-```
-docker compose up -d
+### Entwicklung
+
+`docker-compose.dev.yml`:
+
+```yaml
+services:
+  cashplanner-dev:
+    image: golang:1.22
+    working_dir: /app
+    volumes:
+      - .:/app
+      - cashplanner-dev-data:/data
+    ports:
+      - "127.0.0.1:8080:8080"
+    command: ["air", "-c", ".air.toml"]
+    environment:
+      - TZ=Europe/Zurich
 ```
 
-Fertig.
+`air` (https://github.com/cosmtrek/air) wird als Dev‑Tool in `tools/air` versioniert. Änderungen am Go‑Code werden automatisch erkannt, kompiliert und der Server neu gestartet. SQLite‑Migrations laufen beim Start.
 
 ---
 
-# 21. Reverse Proxy
+## 13. Sicherheit & Auth
 
-Auf deinem Server würde ich die Anwendung nicht direkt öffentlich auf Port 8080 freigeben.
-
-Stattdessen:
-
-```
-Internet
-   │
-   ▼
-Reverse Proxy
-   │
-   ├── TLS / HTTPS
-   │
-   ▼
-Cash Planner
-   │
-   ▼
-SQLite
-```
-
-Geeignet wären beispielsweise bestehende Installationen von:
-
-* Traefik
-* Caddy
-* Nginx Proxy Manager
-* nginx
-
-Die Anwendung selbst muss davon nichts wissen.
+- V1: keine eingebaute Authentifizierung. Der Standard‑Service bindet ausschließlich `127.0.0.1`, Sicherheit erfolgt über den vorgelagerten Reverse Proxy (Authentik, OAuth2‑Proxy, Caddy mit Basic Auth).
+- Container läuft als `nonroot`, Root‑Dateisystem `read_only`, Schreibzugriff nur auf `/data` und temporäre Verzeichnisse.
+- SQLite im WAL‑Modus, `PRAGMA foreign_keys=ON`.
+- Tägliche Backups via Cron/systemd‑Timer (`sqlite3 cashplanner.db ".backup /backup/…"`) oder in‑app Backup‑Button.
 
 ---
 
-# 22. Authentifizierung
+## 14. Backup & Export
 
-Für Version 1 würde ich keine komplexe Benutzerverwaltung bauen.
-
-Es gibt zwei sinnvolle Varianten.
-
-## Variante 1
-
-Authentifizierung komplett vom Reverse Proxy übernehmen lassen.
-
-Beispielsweise:
-
-```
-Authentik
-    ↓
-Reverse Proxy
-    ↓
-Cash Planner
-```
-
-Das wäre für eine private Self-Hosted-App meine bevorzugte Lösung.
-
-## Variante 2
-
-Einfacher Benutzer + Passwort direkt in Cash Planner.
-
-Aber:
-
-* keine Registrierungen
-* keine Rollen
-* keine Teams
-* keine Passwort-Reset-E-Mails
-
-Nur:
-
-```
-username
-password hash
-```
+- **Backup**: UI‑Button ruft die SQLite‑Backup‑API (`VACUUM INTO '/data/backup/cashplanner-YYYYMMDD.db'`) auf und liefert eine konsistente Datei.
+- **Restore**: Upload einer `.db`‑Datei, Validierung (SQLite‑Header, Migration‑Stand), Bestätigungs­dialog, anschließend atomarer Austausch.
+- **Export**: JSON‑Export aller Konten, Einträge und Einstellungen; CSV‑Export der Einträge (`name,account,amount_minor,start_date,recurrence_unit,recurrence_interval,ends_on`).
 
 ---
 
-# 23. Backup
+## 15. Zeitzone & Währung
 
-Da alles in SQLite liegt, ist Backup extrem simpel.
-
-Zu sichern:
-
-```
-./data/
-```
-
-Beispielsweise:
-
-```
-data/
-  cashplanner.db
-```
-
-Optional könnte die Anwendung selbst einen Button anbieten:
-
-```
-Einstellungen
-→ Backup herunterladen
-```
-
-und:
-
-```
-Backup wiederherstellen
-```
+- Standard‑Zeitzone `Europe/Zurich`, einstellbar in `settings`.
+- Fälligkeitstermine werden als lokale Datumswerte behandelt.
+- Währung: V1 unterstützt genau eine Währung (Standard `CHF`). Keine Wechselkurse, keine Crypto.
 
 ---
 
-# 24. Datenexport
+## 16. UI‑Seiten
 
-Sehr wichtig, damit die Anwendung kein Lock-in erzeugt.
+1. **Dashboard** – pro Konto Monats‑/Wochen‑/Tages­bedarf, nächste Zahlungen, Reserve­übersicht.
+2. **Konten** – Liste und Bearbeitung der Konten.
+3. **Einträge** – Liste aller wiederkehrenden und einmaligen Ausgaben, CRUD.
+4. **Timeline** – chronologische Ansicht der nächsten 12 Monate.
+5. **Einstellungen** – Zeitzone, Projektions­fenster, Backup, Export.
 
-Mindestens:
+Das Layout ist Mobile‑first, eigenes CSS, HTMX für partielle Aktualisierungen.
+
+---
+
+## 17. Mobile First & PWA
+
+- Layout primär für Smartphones optimiert.
+- Ein‑Klick‑Bearbeitung einer Ausgabe möglich.
+- PWA‑Manifest und Service Worker installierbar; sensible Daten werden **nicht** im Browser gecacht.
+
+---
+
+## 18. Was ausdrücklich NICHT in Version 1 gehört
+
+- Einnahmen‑/Kontostands‑Tracking
+- Bank‑APIs, Kreditkarten‑Sync, CSV‑Import von Banken
+- Mehrere Benutzer, Teams, Rollen
+- AI‑Assistent
+- Komplexe Charts, doppelte Buchhaltung
+- Multi‑Currency, Wechselkurse, Crypto
+
+---
+
+## 19. Benachrichtigungen
+
+Die App soll den Benutzer aktiv über anstehende Ereignisse und kritische Zustände informieren, ohne dass er die Seite öffnen muss. Ziel ist ein einziger, klarer **Outbound‑Webhook**, der von beliebigen Empfängern konsumiert werden kann.
+
+### 19.1 Architektur
 
 ```
-Export JSON
-Export CSV
+Notificator
+  ├─ Eventquelle   (z. B. „Eintrag fällig in 3 Tagen“, „Reserve überschritten“)
+  ├─ Dispatcher    (formatiert JSON, retry, rate‑limit)
+  └─ Targets       (Gotify, Discord, Telegram, ntfy.sh, WhatsApp‑Bridge, …)
 ```
 
-JSON könnte alle Daten vollständig enthalten.
-
-Beispiel:
+Der Notificator ist ein eigenes Package `internal/notify`, das über ein Interface angebunden ist. Pro Event wird eine `Notification`-Struct erzeugt:
 
 ```
-{
-  "balance": 812050,
-  "currency": "CHF",
-  "entries": [...]
+type Notification struct {
+    Event     string    // "entry.due_soon"
+    Account   string
+    Title     string
+    Body      string
+    Amount    int64
+    DueDate   time.Time
+    Severity  string    // info | warning | critical
 }
 ```
 
-Damit kann selbst bei einem kompletten Projektabbruch alles problemlos wiederhergestellt werden.
+### 19.2 Auslöser (V1)
+
+| Auslöser                  | Schwellwert (einstellbar) | Severity |
+|---------------------------|---------------------------|----------|
+| Eintrag in X Tagen fällig | `due_soon_days` (Default 3)| info     |
+| Reserve überschritten     | pro Konto `wish_buffer`   | warning  |
+| Wunsch‑Puffer stark überschritten | Faktor 1,5            | critical |
+| Wöchentliche Zusammenfassung | Sonntag 18:00 lokal      | info     |
+
+### 19.3 Versand‑Kanäle
+
+Vorrangig wird **Gotify** (self‑hosted, klein, kostenlos) als Ziel unterstützt, da keine externen Drittanbieter benötigt werden. Zusätzlich werden gängige Webhook‑Ziele per einfachem HTTP‑POST unterstützt:
+
+| Kanal      | URL‑Schema                              | Auth               |
+|------------|-----------------------------------------|--------------------|
+| Gotify     | `https://gotify.example.com/message?token=…` | Header `X-Gotify-Key` |
+| ntfy.sh    | `https://ntfy.sh/<topic>`               | optional Basic Auth |
+| Discord    | `https://discord.com/api/webhooks/<id>/<token>` | – |
+| Telegram   | `https://api.telegram.org/bot<token>/sendMessage` | – |
+| WhatsApp   | Bridge (z. B. `wasabi`, `whatsapp-web.js`) | Custom |
+| Generic    | beliebiger Webhook                      | optional Header    |
+
+### 19.4 Konfiguration
+
+In `settings`:
+
+```
+notify_enabled        = true
+notify_target_kind    = gotify   # gotify|ntfy|discord|telegram|whatsapp|generic
+notify_target_url     = https://gotify.example.com/message?token=…
+notify_target_token   = …
+notify_due_soon_days  = 3
+notify_weekly_summary = true
+```
+
+### 19.5 Sicherheit
+
+- Webhook‑URL und Token werden ausschließlich serverseitig gespeichert (`/data`), nicht im Browser.
+- TLS‑Pflicht für alle externen Ziele; HTTP wird abgelehnt.
+- Retry mit exponentiellem Backoff (max 3 Versuche), Fehler werden geloggt, nicht an Benutzer gesendet.
+- Rate‑Limit: maximal 1 Benachrichtigung pro Event und Tag.
+
+### 19.6 UI
+
+Einstellungen‑Seite bietet:
+
+- An/Aus‑Schalter für Benachrichtigungen
+- Dropdown Ziel‑Typ
+- URL‑ und Token‑Eingabe (Passwort‑Feld)
+- „Test‑Nachricht senden“‑Button
+- Liste der letzten 20 gesendeten Benachrichtigungen (Status: ok/fehler)
+
+### 19.7 Datenschutz
+
+Benachrichtigungen enthalten **niemals** den aktuellen Kontostand oder andere vertrauliche Detaildaten, sondern nur aggregierte Beträge und Fälligkeitstage.
 
 ---
 
-# 25. Updates
-
-GitHub Repository:
-
-```
-main
-  ↓
-GitHub Actions
-  ↓
-Docker Build
-  ↓
-GHCR
-  ↓
-Server
-```
-
-Tags:
-
-```
-v1.0.0
-v1.1.0
-v1.2.0
-```
-
-Auf dem Server:
-
-```
-docker compose pull
-docker compose up -d
-```
-
-Die Anwendung führt beim Start automatisch notwendige Datenbank-Migrationen durch.
-
----
-
-# 26. Releases
-
-Ich würde Semantic Versioning verwenden:
-
-```
-1.0.0
-
-MAJOR.MINOR.PATCH
-```
-
-Beispiele:
-
-```
-1.0.1
-Bugfix
-
-1.1.0
-neue Funktion
-
-2.0.0
-inkompatible Änderung
-```
-
----
-
-# 27. Healthcheck
-
-Die Anwendung sollte bereitstellen:
-
-```
-GET /health
-```
-
-Antwort:
-
-```
-200 OK
-```
-
-Dadurch funktioniert beispielsweise:
-
-```
-healthcheck:
-  test: ...
-```
-
-und Docker kann erkennen, ob die Anwendung sauber läuft.
-
----
-
-# 28. Zeitzone
-
-Zeitberechnungen sind bei dieser Anwendung wichtig.
-
-Default:
-
-```
-Europe/Zurich
-```
-
-Ein Zahlungstag sollte als lokales Datum behandelt werden:
-
-```
-2027-02-15
-```
-
-nicht als:
-
-```
-irgendein UTC-Zeitpunkt
-```
-
-Für Rechnungen interessiert primär das Datum und nicht die Uhrzeit.
-
----
-
-# 29. Währung
-
-Version 1 sollte bewusst nur eine Hauptwährung verwenden.
-
-Beispielsweise:
-
-```
-CHF
-```
-
-Keine:
-
-* Wechselkurse
-* Crypto
-* Multi-Currency-Buchhaltung
-
-Später könnte man das erweitern, aber für den ursprünglichen Zweck bringt es keinen Mehrwert.
-
----
-
-# 30. UI-Seiten
-
-Ich würde die gesamte Anwendung auf fünf Seiten begrenzen.
-
-## 1. Dashboard
-
-```
-Kontostand
-reserviert
-frei verfügbar
-nächste Rechnung
-Warnungen
-nächste Zahlungen
-```
-
-## 2. Fixkosten
-
-Liste:
-
-```
-Miete
-Krankenkasse
-Internet
-Versicherungen
-...
-```
-
-## 3. Einnahmen
-
-Liste:
-
-```
-Lohn
-weitere regelmäßige Einnahmen
-```
-
-## 4. Timeline
-
-Chronologische Ansicht:
-
-```
-August
-September
-Oktober
-November
-...
-```
-
-## 5. Einstellungen
-
-```
-Währung
-Projektionszeitraum
-Backup
-Restore
-Export
-```
-
-Mehr würde ich am Anfang nicht bauen.
-
----
-
-# 31. Mobile First
-
-Da man den Kontostand vermutlich häufig schnell vom Handy aktualisieren möchte, sollte die UI primär für Mobile gebaut werden.
-
-Aufruf:
-
-```
-cash.example.ch
-```
-
-Dann:
-
-```
-Kontostand
-[ 8120.50 ]
-
-Speichern
-```
-
-Das sollte innerhalb weniger Sekunden möglich sein.
-
-Optional kann die Website als PWA installierbar sein.
-
-Dann verhält sie sich fast wie eine normale Handy-App.
-
----
-
-# 32. Was ausdrücklich NICHT in Version 1 gehört
-
-Kein:
-
-```
-Bank Sync
-
-SIX API
-
-LUKB API
-
-Kreditkarten Sync
-
-CSV Import von Banken
-
-automatische Kategorisierung
-
-Machine Learning
-
-Belegscanner
-
-OCR
-
-Anlageverwaltung
-
-Aktien
-
-Crypto
-
-offene Rechnungsverwaltung
-
-doppelte Buchhaltung
-
-mehrere Benutzer
-
-Familienaccounts
-
-Push Notifications
-
-komplizierte Charts
-
-AI Assistent
-```
-
-Das alles würde den eigentlichen Vorteil der Anwendung zerstören:
-
-> Sie soll lächerlich einfach sein.
-
----
-
-# 33. MVP
-
-Version 0.1 sollte nur Folgendes können:
-
-### Einträge
-
-* Einnahme hinzufügen
-* Ausgabe hinzufügen
-* monatlich
-* jährlich
-* einmalig
-* bearbeiten
-* löschen
-
-### Kontostand
-
-* aktuellen Kontostand setzen
-
-### Berechnung
-
-* zukünftige Ereignisse generieren
-* Kontostand simulieren
-* niedrigsten zukünftigen Kontostand bestimmen
-* Unterdeckung erkennen
-
-### Dashboard
-
-* aktueller Kontostand
-* nächste Zahlung
-* nächste 10 Ereignisse
-* niedrigster erwarteter Kontostand
-
-### Infrastruktur
-
-* SQLite
-* Dockerfile
-* Docker Compose
-* persistentes Volume
-
-Das reicht bereits für eine tatsächlich nutzbare Anwendung.
-
----
-
-# 34. Version 0.2
-
-Danach:
-
-* Reserve-System
-* Frei-verfügbar-Betrag
-* Timeline
-* 30/90/365-Tage-Projektionen
-* Backup/Restore
-* JSON Export
-
----
-
-# 35. Version 0.3
-
-Erst danach:
-
-* PWA
-* Dark Mode
-* Auth
-* API Tokens
-* CSV Export
-* optionale Benachrichtigungen
-
----
-
-# 36. Spätere optionale Erweiterung: Bankintegration
-
-Die Architektur sollte Bankintegration nicht voraussetzen.
-
-Aber sie sollte später möglich sein.
-
-Aktuell:
-
-```
-Benutzer
-   │
-   │ manueller Kontostand
-   ▼
-Cash Planner
-```
-
-Später theoretisch:
-
-```
-Bank Provider
-   │
-   │ Balance API
-   ▼
-Cash Planner
-```
-
-Die einzige Information, die Cash Planner wirklich benötigt, wäre:
-
-```
-aktueller Kontostand
-```
-
-Es müssten deshalb selbst bei einer späteren Bankintegration nicht zwingend sämtliche Transaktionen importiert werden.
-
-Das ist ein wichtiger Architekturvorteil.
-
----
-
-# 37. Kernphilosophie
-
-Die Anwendung sollte immer diesem Prinzip folgen:
-
-> So wenig Daten wie möglich eingeben, um eine konkrete finanzielle Entscheidung treffen zu können.
-
-Nicht:
-
-> Dokumentiere dein gesamtes finanzielles Leben.
-
-Der zentrale Wert der Anwendung ist daher nicht das Erfassen von Daten.
-
-Der zentrale Wert ist:
-
-```
-Verpflichtungen
-      +
-aktueller Kontostand
-      +
-zukünftige Einnahmen
-      ↓
-Wie viel Geld darf ich ausgeben?
-```
-
----
-
-# 38. Technisches Zielbild
-
-Am Ende sollte das komplette Deployment aus ungefähr diesen Dateien bestehen:
-
-```
-docker-compose.yml
-
-data/
-  cashplanner.db
-```
-
-Und der Betrieb sollte nur benötigen:
-
-```
-docker compose pull
-docker compose up -d
-```
-
-Die Anwendung selbst liegt vollständig im eigenen Docker-Image.
-
-Damit ist sie:
-
-* einfach zu installieren
-* einfach zu aktualisieren
-* einfach zu sichern
-* einfach umzuziehen
-* unabhängig von externen Diensten
-* vollständig selbst gehostet
-
-## Empfohlene technische Kombination
-
-```
-Backend         Go
-Frontend        Go Templates + HTMX
-CSS             simples eigenes CSS
-Datenbank       SQLite
-Deployment      Docker
-Image Registry  GitHub Container Registry
-CI/CD           GitHub Actions
-Reverse Proxy   bestehender Proxy
-Auth            Proxy/Authentik oder später intern
-Zeitzone        Europe/Zurich
-Hauptwährung    CHF
-```
-
-Das ergibt eine sehr kleine, robuste und langfristig wartbare Anwendung ohne unnötigen technischen Ballast.
+## 20. Sprint‑Plan
+
+| Sprint | Ziel                              | Tasks |
+|--------|-----------------------------------|-------|
+| **0 – Setup** | Projektgerüst und Entwicklungsumgebung | 1. Repo‑Initialisierung, README, Konzept.<br>2. Multi‑Stage `Dockerfile`, `docker-compose.yml`, `docker-compose.dev.yml` mit `air`.<br>3. CI‑Pipeline (Build, Test, Lint) in GitHub Actions.<br>4. SQLite‑Migrations‑Skript (`accounts`, `entries`, `settings`). |
+| **1 – Domäne** | Kernlogik für Ausgaben | 1. `accounts`‑Repository + Service + Tests.<br>2. `entries`‑Repository + Service + Tests.<br>3. Wiederholungs­generator (`recurrence_unit`/`interval`, Monatsende‑Regel, `ends_on`).<br>4. Edge‑Case‑Tests: 31. Januar → Februar, Schaltjahr, Enddatum. |
+| **2 – Berechnung** | Perioden‑Berechnung & Reserve | 1. `MonthlyEquivalent`, `PeriodSummary` (Monat/Woche/Tag).<br>2. `ReserveRequired(account, days)`.<br>3. Aggregations‑Service pro Konto und gesamt.<br>4. Tests für Jahres‑/Quartals­beträge und mehrere Konten. |
+| **3 – UI Grundgerüst** | Dashboard, Einträge, Konten | 1. Layout‑Basis (Mobile‑first, eigenes CSS).<br>2. Dashboard‑Ansicht mit Perioden­zahlen und Reserve­anzeige.<br>3. Konten‑ und Einträge‑Listen mit HTMX‑Formularen.<br>4. Einstellungs‑Seite (Zeitzone, Projektions­fenster, Wunsch‑Puffer). |
+| **4 – Timeline & Warnungen** | Vorausschau & Sicherheit | 1. Timeline‑Service (`Timeline(from, to)`).<br>2. Timeline‑Ansicht (Monats­gruppierung).<br>3. Warnungs­logik, wenn `ReserveRequired` einen pro Konto hinterlegten Wunsch‑Puffer überschreitet. |
+| **5 – Backup & Export** | Datenmigration | 1. SQLite‑Backup‑API (`VACUUM INTO`).<br>2. UI‑Button „Backup herunterladen“.<br>3. JSON‑Export, CSV‑Export.<br>4. Restore‑Funktion mit Validierung und Bestätigungs­dialog. |
+| **6 – Hardening & Release** | Produktionsreife | 1. Distroless‑Image, Non‑Root, Read‑Only FS.<br>2. Healthcheck‑Endpoint `/health`.<br>3. Reverse‑Proxy‑Beispiele (Caddy, Traefik).<br>4. Doku: Installation, Update, Backup‑Strategie.<br>5. Erstes Release `v1.0.0`. |
+| **7 – Benachrichtigungen** | Aktive Erinnerungen | 1. `internal/notify`‑Package mit `Notifier`‑Interface.<br>2. Targets: Gotify, ntfy.sh, Discord, Telegram, Generic Webhook.<br>3. Eventquellen: `entry.due_soon`, `reserve.exceeded`, `weekly.summary`.<br>4. Retry‑Strategie (exponentielles Backoff) + Rate‑Limit.<br>5. Einstellungs‑Seite mit Test‑Button und Log.<br>6. TLS‑Prüfung, keine Klartext‑Tokens im Browser.<br>7. Dokumentation: Gotify‑Setup, Discord‑Webhook, Telegram‑Bot. |
+| **8 – Optional** | Komfort | 1. PWA‑Manifest, Offline‑Shell.<br>2. Dark Mode.<br>3. CSV‑Import von Ausgaben‑Listen.<br>4. API‑Tokens für externe Skripte. |
+
+Jeder Sprint endet mit einem Review auf dem `master`‑Branch über einen **non‑fast‑forward Merge** (`git merge --no-ff`) gemäß `CODE_OF_CONDUCT`.
