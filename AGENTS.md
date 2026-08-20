@@ -55,7 +55,7 @@ Diese Datei richtet sich an KI‑Agenten (z. B. Kilo / minimax) und an menschlic
 
 ### Git‑Workflow
 
-Der vollständige Workflow ist im globalen Skill `git-workflow` definiert (`~/.config/kilo/skills/git-workflow/SKILL.md`). Kurzfassung:
+Der vollständige Workflow ist im globalen Skill `git-workflow` definiert (`~/.agent-os/skills/git-workflow/SKILL.md`). Kurzfassung:
 
 - Direkte Commits auf `main`, `sprint/*`, `release/*`, `epic/*` sind **verboten**.
 - Jeder Task liegt auf einem Sub‑Branch (`feat/`, `fix/`, `docs/`, `refactor/`, `chore/`, `data/`).
@@ -143,9 +143,9 @@ Dieses Projekt dient **nicht nur** als Endprodukt, sondern auch als **Quelle fü
 - Der Agent erkennt generalisierbare Patterns und **schlägt proaktiv** vor, sie als globalen Skill, MCP, Workflow oder Regel anzulegen.
 - Konkrete Vorgehensweise und Auslöser siehe `.kilo/workflow/extract-global-patterns.md`.
 - Zielpfade für extrahierte Patterns:
-  - Globale Skills → `~/.config/kilo/skills/<name>/SKILL.md`
-  - Globale MCPs → `~/.config/kilo/mcp.json` oder `.kilo/mcp.json`
-  - Globale Regeln → `~/.config/kilo/rules/` oder `.kilo/rules/`
+  - Globale Skills → `~/.agent-os/skills/<name>/SKILL.md`
+  - Globale MCPs → `~/.config/kilo/kilo.json` (global Kilo config; `mcp`-Sektion)
+  - Globale Regeln → `~/.agent-os/policies/<name>.md` (global); `.kilo/rules/<name>.md` (lokal)
   - Lokale Workflows → `.kilo/workflow/<name>.md`
 - Vorschläge immer **mit Begründung und konkretem Pfad** machen und vor dem Anlegen bestätigen lassen.
 - Im Commit‑Body vermerken, wenn ein Pattern aus EasyPlan in einen globalen Skill/MCP/Workflow überführt wurde.

@@ -1,0 +1,21 @@
+schema: 1
+
+project:
+  id: easyplan
+  name: EasyPlan
+
+# EasyPlan ist aktuell ein Konsument globaler Agent-OS-Skills und -Policies.
+# Aktuell deklariert EasyPlan keine Capability-Bindings, weil:
+# - semantic-memory: nicht im aktuellen Sprint-Scope (kein Bedarf an persistentem Wissen)
+# - work-management: EasyPlan verwendet TASKS.md intern; eine Plane-Adapter-Anbindung
+#   ist eine spaetere Entscheidung.
+# Wenn EasyPlan eine Capability nutzt, wird sie hier deklariert.
+#
+# Beispiel (auskommentiert, NICHT aktiv):
+# capabilities:
+#   semantic-memory:
+#     provider: qdrant
+#     collection: easyplan
+#   work-management:
+#     provider: plane
+#     workspace: easyplan
