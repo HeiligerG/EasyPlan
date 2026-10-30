@@ -1,0 +1,32 @@
+# Build output
+/easyplan
+/easyplan.exe
+*.exe
+*.exe~
+*.dll
+*.so
+*.dylib
+*.test
+*.out
+/bin/
+/dist/
+
+# Runtime data (SQLite database and WAL files)
+/data/
+*.db
+*.db-wal
+*.db-shm
+
+# IDE and editor files
+.idea/
+.vscode/
+*.iml
+*.swp
+*.swo
+.DS_Store
+
+# MkDocs build output
+/site/
+.venv-docs/
+
+# Note: .kilo/plans/ is tracked on purpose, it holds the project plan.
