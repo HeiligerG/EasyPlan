@@ -29,4 +29,9 @@
 /site/
 .venv-docs/
 
+# Skill proposals are local working notes for the skiller; the outcome lives in
+# the pull requests of the kilo repository. Only the format description is tracked.
+.kilo/skill-proposals/*
+!.kilo/skill-proposals/README.md
+
 # Note: .kilo/plans/ is tracked on purpose, it holds the project plan.
