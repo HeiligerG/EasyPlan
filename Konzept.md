@@ -2,6 +2,8 @@
 
 Self-hosted Mini-App, die Fixkosten zusammenrechnet. Leitsatz: **so wenig wie möglich bauen, so schnell wie möglich nutzbar.**
 
+> **Hinweis:** Dieses Dokument ist das ursprüngliche Konzept und dient dem Gesamtverständnis. Verbindlich sind die Dokumentation unter `docs/` und der Code.
+
 ## 1. Ziel
 
 Es werden nur **Ausgaben** erfasst, keine Einnahmen und keine Kontostände. Die App beantwortet drei Fragen:
@@ -88,7 +90,7 @@ Reserve(Konto, N) = Summe aller Fälligkeiten des Kontos im Zeitraum [heute, heu
 
 - Jede tatsächliche Fälligkeit zählt, auch wenn sie im Zeitraum mehrfach vorkommt.
 - N ist 7, 30 (Standard), 60 oder 90 und wird auf dem Dashboard per Auswahl umgeschaltet (Query-Parameter, nicht gespeichert).
-- Die Reserve nutzt dieselbe Terminberechnung wie die Timeline. Es gibt nur **eine** Funktion, die Termine erzeugt.
+- Die Reserve nutzt dieselbe Terminberechnung wie die Timeline. Termine entstehen nur in `internal/plan`: `Occurrences` und `Next` teilen sich denselben Kern.
 
 ### Beispiel (Stand 1.10.2026)
 
@@ -102,10 +104,12 @@ Reserve(Konto, N) = Summe aller Fälligkeiten des Kontos im Zeitraum [heute, heu
 
 | Konto | Monat | Woche | Tag | Reserve 30 Tage | Nächste Zahlung |
 |---|---:|---:|---:|---:|---|
-| Lifestyle | 2'510 | 577 | 82 | 2'510 | Miete 01.11. |
+| Lifestyle | 2'510 | 577 | 82 | 2'510 | Miete 01.10. |
 | Sparen | 100 | 23 | 3 | 0 | Autoversicherung 15.02.2027 |
 | Steuern | 28 | 6 | 1 | 0 | Serafe 20.03.2027 |
 | **Total** | **2'638** | **607** | **87** | **2'510** | |
+
+„Nächste Zahlung“ eines Kontos ist der früheste Termin aller aktiven Einträge ab heute (heute inklusive, wie bei Reserve und Timeline); ab dem 2.10. wäre es „Krankenkasse 05.10.“ (siehe `docs/adr/0004-naechste-zahlung-pro-konto.md`).
 
 Das Total der Tageswerte ist 87, die Summe der Zeilen 86. Das ist die erwähnte Rundungsabweichung.
 
@@ -130,10 +134,17 @@ internal/web/             Handler, Templates, statische Dateien
 
 `internal/plan` enthält:
 
-- `Occurrences(entry, from, to) []time.Time`: die einzige Terminberechnung
-- `Totals(entries) (month, week, day)`: Perioden-Bedarf
+- `Occurrences(entry, from, to) []time.Time`: alle Termine des Eintrags im Bereich `[from, to)`
+- `Next(entry, from) (time.Time, bool)`: erster Termin des Eintrags ab `from`, auch bei langen Intervallen
+- `Totals(entries) Need`: Perioden-Bedarf als `Need{Month, Week, Day}`, ungerundet in Rappen
+- `ActiveOn(entries, today) []Entry`: nur die Einträge, die am Stichtag noch laufen
+- `IsDone(entry, today) bool`: ein einmaliger Eintrag in der Vergangenheit gilt als erledigt
+- `RoundCHF(minor float64) int64`: Rappen auf ganze Franken, kaufmännisch gerundet
+- `Entry.Validate() error`: prüft Betrag, Intervall, Einheit und Datum
 - `Reserve(entries, today, days) int64`
 - `Timeline(entries, from, to) []Event`
+
+`Occurrences` und `Next` teilen sich den Kern `nth`; nur dort entstehen Termine.
 
 Diese Funktionen sind rein und deterministisch (`today` wird übergeben, keine `time.Now()`-Aufrufe darin). Dort liegen die Tests, vor allem für:
 
@@ -197,7 +208,7 @@ Reihenfolge nach Nutzen. Jeder Punkt ist klein und unabhängig.
 
 ## 12. Umsetzungsplan
 
-Ein Feature-Branch pro Phase, Review, dann Merge mit `--no-ff` auf den Hauptbranch.
+Ein Feature-Branch pro Phase, Review, dann Merge per GitHub-Pull-Request.
 
 | Phase | Ergebnis | Inhalt |
 |---|---|---|
