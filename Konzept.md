@@ -1,283 +1,169 @@
-# Konzept: Simple Cash Planner (EasyPlan)
+# Konzept: EasyPlan
+
+Self-hosted Mini-App, die Fixkosten zusammenrechnet. Leitsatz: **so wenig wie möglich bauen, so schnell wie möglich nutzbar.**
 
 ## 1. Ziel
 
-Eine extrem einfache self‑hosted Webanwendung, die ausschließlich dabei hilft, monatliche, wöchentliche und tägliche Fixkosten vollständig abzuschätzen. Es werden **keine Einnahmen und kein Kontostand erfasst**. Die App beantwortet jederzeit drei Fragen:
+Es werden nur **Ausgaben** erfasst, keine Einnahmen und keine Kontostände. Die App beantwortet drei Fragen:
 
 1. Wie viel Geld brauche ich pro Monat, Woche und Tag?
-2. Wie viel Geld muss auf welchem Konto (z. B. Lifestyle, Sparen, Steuern) mindestens vorhanden sein, um die nächsten Zahlungen sicher zu begleichen?
-3. Welche konkreten Zahlungen stehen als Nächstes an?
+2. Wie viel muss pro Konto (Lifestyle, Sparen, Steuern, …) in den nächsten N Tagen mindestens vorhanden sein?
+3. Welche Zahlungen kommen als Nächstes?
 
----
+## 2. Leitplanken (Einfachheit)
 
-## 2. Grundprinzip
+- **Ein Binary, eine SQLite-Datei, keine weiteren Dienste.**
+- Go mit Standardbibliothek (`net/http`, `html/template`, `embed`), SQLite über `modernc.org/sqlite` (ohne CGO), HTMX und CSS als eingebettete Dateien. Kein Node, kein Build-Schritt fürs Frontend, kein ORM.
+- Konfiguration über Umgebungsvariablen, **keine** settings-Tabelle, **keine** Einstellungsseite.
+- Keine eigene Authentifizierung (siehe §9).
+- Berechnungen werden bei Bedarf live gemacht, es werden keine abgeleiteten Daten gespeichert.
 
-Der Benutzer pflegt ausschließlich **Ausgaben**. Jede Ausgabe wird einem Konto zugeordnet. Einnahmen und Kontostände werden bewusst nicht erfasst – die App berechnet rein aus den Verpflichtungen, wie viel Geld vorhanden sein muss.
-
-Beispiel:
-
-| Konto    | Name             |     Betrag | Wiederholung | Datum       |
-| -------- | ---------------- | ---------: | ------------ | ----------- |
-| Lifestyle| Miete            | -2'000 CHF | monatlich    | 1.          |
-| Lifestyle| Krankenkasse     |   -450 CHF | monatlich    | 5.          |
-| Lifestyle| Internet         |    -60 CHF | monatlich    | 15.         |
-| Sparen   | Autoversicherung | -1'200 CHF | jährlich     | 15. Februar |
-| Steuern  | Serafe           |   -335 CHF | jährlich     | 20. März    |
-
-Das Vorzeichen wird bei der Anzeige gesetzt; intern werden ausschließlich **positive Beträge in Minor Units (Rappen)** gespeichert.
-
----
-
-## 3. Dashboard
-
-Das Dashboard zeigt pro Konto den monatlichen, wöchentlichen und täglichen Bedarf sowie die nächsten anstehenden Zahlungen.
+## 3. Datenmodell
 
 ```
-EASYPLAN
+accounts
+  id          integer primary key
+  name        text not null unique
+  sort_order  integer not null default 0
+  is_active   integer not null default 1
 
-Lifestyle
-  Monat:  2'510 CHF   Woche:   585 CHF   Tag:   84 CHF
-  Nächste:  Miete 01.09   -2'000 CHF
-
-Sparen
-  Monat:    100 CHF   Woche:    23 CHF   Tag:    3 CHF
-  Nächste:  Autoversicherung 15.02.2027   -1'200 CHF
-
-Steuern
-  Monat:     28 CHF   Woche:     6 CHF   Tag:    1 CHF
-  Nächste:  Serafe 20.03.2027   -335 CHF
-
-Insgesamt
-  Monat:  2'638 CHF   Woche:   614 CHF   Tag:   88 CHF
+entries
+  id          integer primary key
+  account_id  integer not null references accounts(id)
+  name        text not null
+  amount_minor integer not null check (amount_minor > 0)   -- Rappen
+  start_date  text not null                                -- YYYY-MM-DD
+  unit        text not null check (unit in ('once','week','month','year'))
+  interval    integer not null default 1 check (interval > 0)
+  ends_on     text null                                    -- YYYY-MM-DD
+  notes       text not null default ''
 ```
 
-Darüber hinaus zeigt das Dashboard eine **30‑Tage‑Reserve‑Übersicht** pro Konto, siehe §8.
+- Beträge sind immer positive Rappen (`int64`). Das Vorzeichen (Minus) entsteht erst bei der Anzeige.
+- Datumswerte sind lokale Kalendertage ohne Uhrzeit. Die Zeitzone kommt aus der Umgebungsvariable `TZ`.
+- Migrationen liegen als SQL-Dateien im Binary (`embed`) und laufen beim Start. Fremdschlüssel sind aktiv (`PRAGMA foreign_keys=ON`), SQLite läuft im WAL-Modus.
+- Standardkonten beim ersten Start: Lifestyle, Sparen, Steuern. Konten lassen sich umbenennen, hinzufügen und deaktivieren (kein Löschen, solange Einträge existieren).
 
----
+## 4. Wiederholungen
 
-## 4. Konten
+| unit | Bedeutung | Beispiel |
+|---|---|---|
+| `once` | einmalig am `start_date` | Zahnarzt 12.11. |
+| `week` | alle `interval` Wochen | `week`, 2 = alle 2 Wochen |
+| `month` | alle `interval` Monate | `month`, 3 = quartalsweise |
+| `year` | alle `interval` Jahre | Versicherung jährlich |
 
-Konten dienen ausschließlich der Gruppierung von Ausgaben. Attribute:
+Regeln:
 
-- Name (z. B. „Lifestyle“, „Sparen“, „Steuern“)
-- Optionale Beschreibung
-- Sortier­reihenfolge für die Anzeige
-- Aktiv/Inaktiv
+- Der n-te Termin wird **immer direkt aus `start_date` berechnet** (`start_date + n * interval`), nie vom vorherigen Termin aus. So gilt: 31.1. → 28.2. → 31.3. (und nicht 28.3.).
+- **Monatsende:** Gibt es den Tag im Zielmonat nicht, wird der letzte Tag des Monats genommen (Schaltjahr inklusive).
+- Termine gelten ab `start_date` bis und mit `ends_on` (falls gesetzt).
+- Es werden keine einzelnen Termine gespeichert. Ein einmaliger Eintrag in der Vergangenheit gilt in der Liste als „erledigt“. Dafür wird nichts in die DB geschrieben.
 
-Bei der Installation werden sinnvolle Standardkonten angelegt. Benutzer können weitere Konten hinzufügen oder deaktivieren.
+## 5. Berechnung
 
----
-
-## 5. Arten von Einträgen
-
-### Wiederkehrende Ausgabe
-
-```
-Name
-Konto
-Betrag (positiv)
-Startdatum
-Wiederholung (siehe §6)
-optional Enddatum
-Notizen
-```
-
-### Einmalige Ausgabe
+Alles leitet sich aus den **Kosten pro Jahr** ab, damit Monat, Woche und Tag zueinander passen. Ein Jahr hat 365,25 Tage.
 
 ```
-Name
-Konto
-Betrag (positiv)
-Fälligkeitsdatum
-Notizen
+Jahreskosten(Eintrag) =
+    week:  amount * 365.25 / 7 / interval
+    month: amount * 12 / interval
+    year:  amount / interval
+    once:  nicht enthalten
+
+Monat = Jahreskosten / 12
+Woche = Jahreskosten * 7 / 365.25
+Tag   = Jahreskosten / 365.25
 ```
 
-Nach der Fälligkeit wird der Eintrag automatisch deaktiviert (`is_active = false`), bleibt aber für den Verlauf sichtbar.
+- Summiert wird pro Konto und gesamt, jeweils über die ungerundeten Werte. Gerundet wird **nur bei der Anzeige** auf ganze Franken.
+- Dadurch kann die Summe der angezeigten Konto-Tageswerte um 1 CHF vom angezeigten Total abweichen. Das ist gewollt, es wird nicht nachkorrigiert.
+- **Einmalige Ausgaben** sind kein laufender Bedarf. Sie fliessen nicht in Monat, Woche und Tag ein, erscheinen aber in Timeline und Reserve.
 
----
-
-## 6. Wiederholungsregeln
-
-Intern einheitlich:
+### Reserve
 
 ```
-recurrence_unit     = { day, week, month, year, once }
-recurrence_interval = N (>0)
+Reserve(Konto, N) = Summe aller Fälligkeiten des Kontos im Zeitraum [heute, heute + N Tage)
 ```
 
-Version 1 unterstützt:
+- Jede tatsächliche Fälligkeit zählt, auch wenn sie im Zeitraum mehrfach vorkommt.
+- N ist 7, 30 (Standard), 60 oder 90 und wird auf dem Dashboard per Auswahl umgeschaltet (Query-Parameter, nicht gespeichert).
+- Die Reserve nutzt dieselbe Terminberechnung wie die Timeline. Es gibt nur **eine** Funktion, die Termine erzeugt.
 
-- monatlich (`month`, `1`)
-- alle N Monate (`month`, `N`)
-- jährlich (`year`, `1`)
-- wöchentlich (`week`, `1`)
-- einmalig (`once`)
+### Beispiel (Stand 1.10.2026)
 
-Wiederholungen werden **deterministisch** aus `start_date` und `ends_on` berechnet; es werden keine einzelnen Termine persistiert. **Monatsende‑Regel:** Ist der gewählte Tag größer als der letzte Tag des Zielmonats, wird auf den letzten gültigen Tag des Monats verschoben (z. B. 31. → 28./29. Februar). Ein Schaltjahr wird korrekt behandelt.
+| Konto | Eintrag | Betrag | Rhythmus |
+|---|---|---|---|
+| Lifestyle | Miete | 2'000 | monatlich, am 1. |
+| Lifestyle | Krankenkasse | 450 | monatlich, am 5. |
+| Lifestyle | Internet | 60 | monatlich, am 15. |
+| Sparen | Autoversicherung | 1'200 | jährlich, 15.2. |
+| Steuern | Serafe | 335 | jährlich, 20.3. |
 
----
+| Konto | Monat | Woche | Tag | Reserve 30 Tage | Nächste Zahlung |
+|---|---:|---:|---:|---:|---|
+| Lifestyle | 2'510 | 577 | 82 | 2'510 | Miete 01.11. |
+| Sparen | 100 | 23 | 3 | 0 | Autoversicherung 15.02.2027 |
+| Steuern | 28 | 6 | 1 | 0 | Serafe 20.03.2027 |
+| **Total** | **2'638** | **607** | **87** | **2'510** | |
 
-## 7. Perioden‑Berechnung
+Das Total der Tageswerte ist 87, die Summe der Zeilen 86. Das ist die erwähnte Rundungsabweichung.
 
-### Monatsbedarf
+## 6. Seiten
 
-```
-monthly_equivalent(entry) =
-    case recurrence_unit:
-        month: amount_minor * interval
-        year:  amount_minor * interval / 12
-        week:  amount_minor * interval * 4,345
-        once:  0  (wird im Fälligkeitsmonat addiert)
+Mobile-first, ein CSS-File, HTMX für Formulare und Teil-Updates. Jede Seite funktioniert auch ohne JavaScript, soweit es sich ohne Aufwand machen lässt.
 
-monatlicher Bedarf (Konto) = Σ monthly_equivalent(entry)  + Σ einmaliger Beträge im aktuellen Monat
-```
+1. **Dashboard:** pro Konto und gesamt Monat/Woche/Tag, Reserve für N Tage, nächste Zahlung. Auswahl für N.
+2. **Einträge:** Liste (gruppiert nach Konto) mit Anlegen, Bearbeiten, Löschen. Bearbeiten ist ein Klick auf die Zeile.
+3. **Timeline:** die nächsten 12 Monate, nach Monat gruppiert, optional nach Konto filterbar.
+4. **Konten:** anlegen, umbenennen, sortieren, deaktivieren.
+5. **Backup:** Button „Datenbank herunterladen“ (siehe §8). Weitere Einstellungen gibt es nicht.
 
-### Wochenbedarf
-
-```
-weekly = monthly / 4,345
-```
-
-### Tagesbedarf
-
-```
-daily = monthly / 30,4375
-```
-
-Pro Konto und gesamt.
-
----
-
-## 8. Benötigte Mindest‑Reserve pro Konto
-
-Zusätzlich zum Durchschnitt wird der **Mindestbedarf bis zu einem wählbaren Zeitfenster** berechnet:
+## 7. Code-Struktur
 
 ```
-reserve_window_days = 30 (einstellbar: 7, 30, 60, 90)
-reserve(account) = Σ amount_minor
-                   für alle Einträge dieses Kontos,
-                   deren nächste Fälligkeit <= today + reserve_window_days
+cmd/easyplan/main.go      Start, Konfiguration, Subcommand "healthcheck"
+internal/store/           SQLite, Migrationen, Queries
+internal/plan/            reine Berechnungslogik, ohne I/O
+internal/web/             Handler, Templates, statische Dateien
 ```
 
-Anzeige:
+`internal/plan` enthält:
 
-```
-Lifestyle – Reserve 30 Tage: 2'510 CHF
-Sparen    – Reserve 30 Tage:   100 CHF (nächste Fälligkeit erst in 180 Tagen)
-```
+- `Occurrences(entry, from, to) []time.Time`: die einzige Terminberechnung
+- `Totals(entries) (month, week, day)`: Perioden-Bedarf
+- `Reserve(entries, today, days) int64`
+- `Timeline(entries, from, to) []Event`
 
-Eine Warnung erscheint, sobald die Reserve einen vom Benutzer pro Konto hinterlegten **Wunsch‑Puffer** (optional, in `settings`) überschreitet.
+Diese Funktionen sind rein und deterministisch (`today` wird übergeben, keine `time.Now()`-Aufrufe darin). Dort liegen die Tests, vor allem für:
 
----
+- Monatsende (31.1. → Februar, 29.2. im Schaltjahr)
+- `ends_on` am Termin selbst und davor/danach
+- Intervalle > 1 (Quartal, alle 2 Wochen)
+- Summen über mehrere Konten und Rundung
 
-## 9. Timeline
+Für Store und Handler genügt je ein Smoke-Test mit SQLite im Speicher.
 
-Chronologische Ansicht aller anstehenden Zahlungen, gruppiert nach Monat:
+## 8. Betrieb
 
-```
-August
-  15.   Internet        -60
+**Konfiguration (Umgebungsvariablen):**
 
-September
-  01.   Miete          -2'000
-  05.   Krankenkasse     -450
-  15.   Internet          -60
+| Variable | Standard | Bedeutung |
+|---|---|---|
+| `EASYPLAN_ADDR` | `:8080` | Listen-Adresse |
+| `EASYPLAN_DATA` | `/data` | Ordner der SQLite-Datei |
+| `TZ` | `Europe/Zurich` | Zeitzone |
 
-…
-```
+Die Währung ist fest CHF.
 
-Die Timeline wird aus den Wiederholungsregeln für den gewählten Zeitraum (Standard 12 Monate) on‑the‑fly erzeugt.
-
----
-
-## 10. Datenmodell
-
-### accounts
-
-```
-id            uuid
-name          text
-description   text
-sort_order    int
-is_active     bool
-created_at    timestamp
-updated_at    timestamp
-```
-
-### entries
-
-```
-id                  uuid
-name                text
-account_id          uuid (FK accounts)
-amount_minor        integer (>0)
-start_date          date
-recurrence_unit     text (day|week|month|year|once)
-recurrence_interval integer (>0, default 1)
-ends_on             date null
-notes               text
-is_active           bool
-created_at          timestamp
-updated_at          timestamp
-```
-
-### settings
-
-```
-key   text primary key
-value text
-```
-
-Beispiel:
-
-```
-projection_days        = 30
-currency               = CHF
-timezone               = Europe/Zurich
-default_reserve_window = 30
-```
-
-Geldbeträge werden ausschließlich als **Minor Units (Rappen)** als `integer` gespeichert. `amount_minor` ist immer positiv; das Vorzeichen ergibt sich aus dem Eintragstyp (immer `expense`).
-
----
-
-## 11. Service‑Schicht
-
-Die Berechnungslogik liegt in `internal/service` und ist rein (keine I/O‑Abhängigkeiten), deterministisch und vollständig testbar:
-
-- `MonthlyEquivalent(entry) int`
-- `PeriodSummary(accountID string) (month, week, day int)`
-- `ReserveRequired(accountID string, days int) int`
-- `Timeline(from, to time.Time) []Event`
-
-HTTP‑Handler rufen diese Funktionen auf; spätere Schnittstellen (CLI, REST, Mobile) können dieselben Funktionen wiederverwenden.
-
----
-
-## 12. Docker (Produktion und Entwicklung)
-
-### Produktion
-
-Multi‑Stage `Dockerfile`:
-
-```
-Stage 1: golang:1.22 → go build -o /out/cashplanner ./cmd/server
-Stage 2: gcr.io/distroless/static-debian12
-         COPY /out/cashplanner /cashplanner
-         USER nonroot
-         EXPOSE 8080
-         HEALTHCHECK --interval=30s --timeout=3s CMD ["/cashplanner", "healthcheck"]
-```
-
-Ergebnis: kleines, statisch gelinktes Binary, Image < 20 MB. Persistiert wird ausschließlich `/data` (SQLite).
-
-`docker-compose.yml`:
+**Docker:** Multi-Stage-Dockerfile (aktuelle stabile Go-Version → `gcr.io/distroless/static`), Nutzer `nonroot`, Healthcheck über `easyplan healthcheck` gegen `/health`. Persistiert wird nur `/data`.
 
 ```yaml
 services:
-  cashplanner:
-    image: ghcr.io/<owner>/cashplanner:1.0.0
+  easyplan:
+    build: .
     restart: unless-stopped
+    read_only: true
     ports:
       - "127.0.0.1:8080:8080"
     volumes:
@@ -286,184 +172,38 @@ services:
       - TZ=Europe/Zurich
 ```
 
-Reverse Proxy (Caddy, Traefik, Nginx) übernimmt TLS und optional Authentifizierung.
+**Entwicklung:** `go run ./cmd/easyplan` (Daten in `./data`). Kein Hot-Reload-Tool, kein Dev-Compose.
 
-### Entwicklung
+**Backup:** Der Button ruft `VACUUM INTO` auf eine temporäre Datei auf und liefert sie als Download. **Restore** läuft von Hand: Container stoppen, Datei als `/data/easyplan.db` ersetzen, Container starten. Das steht in der README. Für automatische Backups reicht ein Cron-Job mit `sqlite3 easyplan.db ".backup …"`.
 
-`docker-compose.dev.yml`:
+## 9. Sicherheit
 
-```yaml
-services:
-  cashplanner-dev:
-    image: golang:1.22
-    working_dir: /app
-    volumes:
-      - .:/app
-      - cashplanner-dev-data:/data
-    ports:
-      - "127.0.0.1:8080:8080"
-    command: ["air", "-c", ".air.toml"]
-    environment:
-      - TZ=Europe/Zurich
-```
+- Keine eingebaute Authentifizierung. Der Dienst lauscht nur auf `127.0.0.1`. Zugriff und TLS regelt ein Reverse Proxy (Caddy, Traefik, Authentik, …). Die README enthält ein Caddy-Beispiel mit Basic Auth.
+- Container als `nonroot`, Root-Dateisystem schreibgeschützt, Schreibzugriff nur auf `/data`.
+- CSRF-Schutz ohne Token: Der Server prüft bei jedem schreibenden Request (POST/PUT/DELETE), dass der `Origin`-Header zum `Host` passt (HTMX sendet ihn mit). Eingaben werden serverseitig validiert (Betrag > 0, gültiges Datum, bekanntes `unit`).
 
-`air` (https://github.com/cosmtrek/air) wird als Dev‑Tool in `tools/air` versioniert. Änderungen am Go‑Code werden automatisch erkannt, kompiliert und der Server neu gestartet. SQLite‑Migrations laufen beim Start.
+## 10. Nicht in V1
 
----
+Einnahmen und Kontostände, Bank-Anbindung, mehrere Benutzer, mehrere Währungen, Charts, Einstellungsseite, Wunsch-Puffer und Warnungen, Upload-Restore, JSON/CSV-Export, PWA, Dark Mode, Benachrichtigungen.
 
-## 13. Sicherheit & Auth
+## 11. Später (nur bei Bedarf)
 
-- V1: keine eingebaute Authentifizierung. Der Standard‑Service bindet ausschließlich `127.0.0.1`, Sicherheit erfolgt über den vorgelagerten Reverse Proxy (Authentik, OAuth2‑Proxy, Caddy mit Basic Auth).
-- Container läuft als `nonroot`, Root‑Dateisystem `read_only`, Schreibzugriff nur auf `/data` und temporäre Verzeichnisse.
-- SQLite im WAL‑Modus, `PRAGMA foreign_keys=ON`.
-- Tägliche Backups via Cron/systemd‑Timer (`sqlite3 cashplanner.db ".backup /backup/…"`) oder in‑app Backup‑Button.
+Reihenfolge nach Nutzen. Jeder Punkt ist klein und unabhängig.
 
----
+1. **Benachrichtigung:** eine einzige Umgebungsvariable `EASYPLAN_NOTIFY_URL` (https, z. B. ntfy oder Gotify). Ein täglicher Check sendet „Zahlung in ≤ 3 Tagen“ und sonntags eine Wochenzusammenfassung. Kein Retry-System, kein Log, keine UI; Fehler gehen ins Server-Log. Keine Kontostände oder Notizen in der Nachricht.
+2. **CSV-Export** der Einträge.
+3. **Dark Mode** per `prefers-color-scheme` (nur CSS).
+4. **PWA-Manifest** (installierbar, ohne Daten-Cache).
 
-## 14. Backup & Export
+## 12. Umsetzungsplan
 
-- **Backup**: UI‑Button ruft die SQLite‑Backup‑API (`VACUUM INTO '/data/backup/cashplanner-YYYYMMDD.db'`) auf und liefert eine konsistente Datei.
-- **Restore**: Upload einer `.db`‑Datei, Validierung (SQLite‑Header, Migration‑Stand), Bestätigungs­dialog, anschließend atomarer Austausch.
-- **Export**: JSON‑Export aller Konten, Einträge und Einstellungen; CSV‑Export der Einträge (`name,account,amount_minor,start_date,recurrence_unit,recurrence_interval,ends_on`).
+Ein Feature-Branch pro Phase, Review, dann Merge mit `--no-ff` auf den Hauptbranch.
 
----
+| Phase | Ergebnis | Inhalt |
+|---|---|---|
+| **1 – Kern** | Berechnung steht und ist getestet | Repo-Gerüst (`go.mod`, Ordner, `.gitignore`), `internal/plan` mit Tests, Migration und `internal/store` |
+| **2 – UI** | App ist benutzbar | Layout und CSS, Dashboard, Einträge, Konten, Timeline |
+| **3 – Betrieb** | Läuft im Container | Dockerfile, Compose, `/health`, Backup-Button, README (Installation, Update, Restore, Caddy-Beispiel), GitHub-Actions-Workflow (build, vet, test), Release `v1.0.0` |
+| **4 – Optional** | nach Bedarf | Punkte aus §11 |
 
-## 15. Zeitzone & Währung
-
-- Standard‑Zeitzone `Europe/Zurich`, einstellbar in `settings`.
-- Fälligkeitstermine werden als lokale Datumswerte behandelt.
-- Währung: V1 unterstützt genau eine Währung (Standard `CHF`). Keine Wechselkurse, keine Crypto.
-
----
-
-## 16. UI‑Seiten
-
-1. **Dashboard** – pro Konto Monats‑/Wochen‑/Tages­bedarf, nächste Zahlungen, Reserve­übersicht.
-2. **Konten** – Liste und Bearbeitung der Konten.
-3. **Einträge** – Liste aller wiederkehrenden und einmaligen Ausgaben, CRUD.
-4. **Timeline** – chronologische Ansicht der nächsten 12 Monate.
-5. **Einstellungen** – Zeitzone, Projektions­fenster, Backup, Export.
-
-Das Layout ist Mobile‑first, eigenes CSS, HTMX für partielle Aktualisierungen.
-
----
-
-## 17. Mobile First & PWA
-
-- Layout primär für Smartphones optimiert.
-- Ein‑Klick‑Bearbeitung einer Ausgabe möglich.
-- PWA‑Manifest und Service Worker installierbar; sensible Daten werden **nicht** im Browser gecacht.
-
----
-
-## 18. Was ausdrücklich NICHT in Version 1 gehört
-
-- Einnahmen‑/Kontostands‑Tracking
-- Bank‑APIs, Kreditkarten‑Sync, CSV‑Import von Banken
-- Mehrere Benutzer, Teams, Rollen
-- AI‑Assistent
-- Komplexe Charts, doppelte Buchhaltung
-- Multi‑Currency, Wechselkurse, Crypto
-
----
-
-## 19. Benachrichtigungen
-
-Die App soll den Benutzer aktiv über anstehende Ereignisse und kritische Zustände informieren, ohne dass er die Seite öffnen muss. Ziel ist ein einziger, klarer **Outbound‑Webhook**, der von beliebigen Empfängern konsumiert werden kann.
-
-### 19.1 Architektur
-
-```
-Notificator
-  ├─ Eventquelle   (z. B. „Eintrag fällig in 3 Tagen“, „Reserve überschritten“)
-  ├─ Dispatcher    (formatiert JSON, retry, rate‑limit)
-  └─ Targets       (Gotify, Discord, Telegram, ntfy.sh, WhatsApp‑Bridge, …)
-```
-
-Der Notificator ist ein eigenes Package `internal/notify`, das über ein Interface angebunden ist. Pro Event wird eine `Notification`-Struct erzeugt:
-
-```
-type Notification struct {
-    Event     string    // "entry.due_soon"
-    Account   string
-    Title     string
-    Body      string
-    Amount    int64
-    DueDate   time.Time
-    Severity  string    // info | warning | critical
-}
-```
-
-### 19.2 Auslöser (V1)
-
-| Auslöser                  | Schwellwert (einstellbar) | Severity |
-|---------------------------|---------------------------|----------|
-| Eintrag in X Tagen fällig | `due_soon_days` (Default 3)| info     |
-| Reserve überschritten     | pro Konto `wish_buffer`   | warning  |
-| Wunsch‑Puffer stark überschritten | Faktor 1,5            | critical |
-| Wöchentliche Zusammenfassung | Sonntag 18:00 lokal      | info     |
-
-### 19.3 Versand‑Kanäle
-
-Vorrangig wird **Gotify** (self‑hosted, klein, kostenlos) als Ziel unterstützt, da keine externen Drittanbieter benötigt werden. Zusätzlich werden gängige Webhook‑Ziele per einfachem HTTP‑POST unterstützt:
-
-| Kanal      | URL‑Schema                              | Auth               |
-|------------|-----------------------------------------|--------------------|
-| Gotify     | `https://gotify.example.com/message?token=…` | Header `X-Gotify-Key` |
-| ntfy.sh    | `https://ntfy.sh/<topic>`               | optional Basic Auth |
-| Discord    | `https://discord.com/api/webhooks/<id>/<token>` | – |
-| Telegram   | `https://api.telegram.org/bot<token>/sendMessage` | – |
-| WhatsApp   | Bridge (z. B. `wasabi`, `whatsapp-web.js`) | Custom |
-| Generic    | beliebiger Webhook                      | optional Header    |
-
-### 19.4 Konfiguration
-
-In `settings`:
-
-```
-notify_enabled        = true
-notify_target_kind    = gotify   # gotify|ntfy|discord|telegram|whatsapp|generic
-notify_target_url     = https://gotify.example.com/message?token=…
-notify_target_token   = …
-notify_due_soon_days  = 3
-notify_weekly_summary = true
-```
-
-### 19.5 Sicherheit
-
-- Webhook‑URL und Token werden ausschließlich serverseitig gespeichert (`/data`), nicht im Browser.
-- TLS‑Pflicht für alle externen Ziele; HTTP wird abgelehnt.
-- Retry mit exponentiellem Backoff (max 3 Versuche), Fehler werden geloggt, nicht an Benutzer gesendet.
-- Rate‑Limit: maximal 1 Benachrichtigung pro Event und Tag.
-
-### 19.6 UI
-
-Einstellungen‑Seite bietet:
-
-- An/Aus‑Schalter für Benachrichtigungen
-- Dropdown Ziel‑Typ
-- URL‑ und Token‑Eingabe (Passwort‑Feld)
-- „Test‑Nachricht senden“‑Button
-- Liste der letzten 20 gesendeten Benachrichtigungen (Status: ok/fehler)
-
-### 19.7 Datenschutz
-
-Benachrichtigungen enthalten **niemals** den aktuellen Kontostand oder andere vertrauliche Detaildaten, sondern nur aggregierte Beträge und Fälligkeitstage.
-
----
-
-## 20. Sprint‑Plan
-
-| Sprint | Ziel                              | Tasks |
-|--------|-----------------------------------|-------|
-| **0 – Setup** | Projektgerüst und Entwicklungsumgebung | 1. Repo‑Initialisierung, README, Konzept.<br>2. Multi‑Stage `Dockerfile`, `docker-compose.yml`, `docker-compose.dev.yml` mit `air`.<br>3. CI‑Pipeline (Build, Test, Lint) in GitHub Actions.<br>4. SQLite‑Migrations‑Skript (`accounts`, `entries`, `settings`). |
-| **1 – Domäne** | Kernlogik für Ausgaben | 1. `accounts`‑Repository + Service + Tests.<br>2. `entries`‑Repository + Service + Tests.<br>3. Wiederholungs­generator (`recurrence_unit`/`interval`, Monatsende‑Regel, `ends_on`).<br>4. Edge‑Case‑Tests: 31. Januar → Februar, Schaltjahr, Enddatum. |
-| **2 – Berechnung** | Perioden‑Berechnung & Reserve | 1. `MonthlyEquivalent`, `PeriodSummary` (Monat/Woche/Tag).<br>2. `ReserveRequired(account, days)`.<br>3. Aggregations‑Service pro Konto und gesamt.<br>4. Tests für Jahres‑/Quartals­beträge und mehrere Konten. |
-| **3 – UI Grundgerüst** | Dashboard, Einträge, Konten | 1. Layout‑Basis (Mobile‑first, eigenes CSS).<br>2. Dashboard‑Ansicht mit Perioden­zahlen und Reserve­anzeige.<br>3. Konten‑ und Einträge‑Listen mit HTMX‑Formularen.<br>4. Einstellungs‑Seite (Zeitzone, Projektions­fenster, Wunsch‑Puffer). |
-| **4 – Timeline & Warnungen** | Vorausschau & Sicherheit | 1. Timeline‑Service (`Timeline(from, to)`).<br>2. Timeline‑Ansicht (Monats­gruppierung).<br>3. Warnungs­logik, wenn `ReserveRequired` einen pro Konto hinterlegten Wunsch‑Puffer überschreitet. |
-| **5 – Backup & Export** | Datenmigration | 1. SQLite‑Backup‑API (`VACUUM INTO`).<br>2. UI‑Button „Backup herunterladen“.<br>3. JSON‑Export, CSV‑Export.<br>4. Restore‑Funktion mit Validierung und Bestätigungs­dialog. |
-| **6 – Hardening & Release** | Produktionsreife | 1. Distroless‑Image, Non‑Root, Read‑Only FS.<br>2. Healthcheck‑Endpoint `/health`.<br>3. Reverse‑Proxy‑Beispiele (Caddy, Traefik).<br>4. Doku: Installation, Update, Backup‑Strategie.<br>5. Erstes Release `v1.0.0`. |
-| **7 – Benachrichtigungen** | Aktive Erinnerungen | 1. `internal/notify`‑Package mit `Notifier`‑Interface.<br>2. Targets: Gotify, ntfy.sh, Discord, Telegram, Generic Webhook.<br>3. Eventquellen: `entry.due_soon`, `reserve.exceeded`, `weekly.summary`.<br>4. Retry‑Strategie (exponentielles Backoff) + Rate‑Limit.<br>5. Einstellungs‑Seite mit Test‑Button und Log.<br>6. TLS‑Prüfung, keine Klartext‑Tokens im Browser.<br>7. Dokumentation: Gotify‑Setup, Discord‑Webhook, Telegram‑Bot. |
-| **8 – Optional** | Komfort | 1. PWA‑Manifest, Offline‑Shell.<br>2. Dark Mode.<br>3. CSV‑Import von Ausgaben‑Listen.<br>4. API‑Tokens für externe Skripte. |
-
-Jeder Sprint endet mit einem Review auf dem `master`‑Branch über einen **non‑fast‑forward Merge** (`git merge --no-ff`) gemäß `CODE_OF_CONDUCT`.
+Nach Phase 2 lässt sich die App bereits im Alltag testen. Phase 3 ist nur nötig, sobald sie dauerhaft laufen soll.
