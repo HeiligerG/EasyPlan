@@ -1,0 +1,78 @@
+{{define "content"}}
+<h2>{{.Title}}</h2>
+{{if .Data.IsNew}}
+<p class="hint">Der neue Eintrag wird dem gewählten Konto zugeordnet. Die Felder sind mit den üblichen Werten vorbelegt.</p>
+{{else}}
+<p class="hint">Die Änderungen werden mit dem Speichern übernommen. Das Konto kann gewechselt werden.</p>
+{{end}}
+
+<form method="post" action="{{.Data.Action}}">
+<div class="field">
+<label for="account_id">Konto</label>
+<select id="account_id" name="account_id"{{if index .Errors "account_id"}} aria-invalid="true" aria-describedby="account_id-error"{{end}}>
+{{range .Data.Accounts}}
+<option value="{{.ID}}"{{if .Selected}} selected{{end}}>{{.Name}}{{if not .IsActive}} (deaktiviert){{end}}</option>
+{{end}}
+</select>
+{{with index .Errors "account_id"}}<p class="field-error" id="account_id-error" role="alert">{{.}}</p>{{end}}
+</div>
+
+<div class="field">
+<label for="name">Name</label>
+<input id="name" name="name" type="text" value="{{.Data.Values.Name}}" maxlength="100" autocomplete="off" required{{if index .Errors "name"}} aria-invalid="true" aria-describedby="name-error"{{end}}>
+{{with index .Errors "name"}}<p class="field-error" id="name-error" role="alert">{{.}}</p>{{end}}
+</div>
+
+<div class="field">
+<label for="amount">Betrag in Franken</label>
+<input id="amount" name="amount" type="text" value="{{.Data.Values.Amount}}" inputmode="decimal" autocomplete="off" required aria-describedby="amount-hint{{if index .Errors "amount"}} amount-error{{end}}"{{if index .Errors "amount"}} aria-invalid="true"{{end}}>
+<p class="field-hint" id="amount-hint">Höchstens zwei Nachkommastellen, zum Beispiel 12.50.</p>
+{{with index .Errors "amount"}}<p class="field-error" id="amount-error" role="alert">{{.}}</p>{{end}}
+</div>
+
+<div class="field">
+<label for="start_date">Startdatum</label>
+<input id="start_date" name="start_date" type="date" value="{{.Data.Values.StartDate}}" required{{if index .Errors "start_date"}} aria-invalid="true" aria-describedby="start_date-error"{{end}}>
+{{with index .Errors "start_date"}}<p class="field-error" id="start_date-error" role="alert">{{.}}</p>{{end}}
+</div>
+
+<div class="field">
+<label for="unit">Rhythmus</label>
+<select id="unit" name="unit"{{if index .Errors "unit"}} aria-invalid="true" aria-describedby="unit-error"{{end}}>
+{{range .Data.Units}}
+<option value="{{.Value}}"{{if eq .Value $.Data.Values.Unit}} selected{{end}}>{{.Label}}</option>
+{{end}}
+</select>
+{{with index .Errors "unit"}}<p class="field-error" id="unit-error" role="alert">{{.}}</p>{{end}}
+</div>
+
+<div class="field">
+<label for="interval">Intervall</label>
+<input id="interval" name="interval" type="number" min="1" max="10000" step="1" value="{{.Data.Values.Interval}}" inputmode="numeric" autocomplete="off" aria-describedby="interval-hint{{if index .Errors "interval"}} interval-error{{end}}"{{if index .Errors "interval"}} aria-invalid="true"{{end}}>
+<p class="field-hint" id="interval-hint">Anzahl der Einheiten zwischen zwei Terminen. Beim Rhythmus „einmalig“ wird das Intervall ignoriert.</p>
+{{with index .Errors "interval"}}<p class="field-error" id="interval-error" role="alert">{{.}}</p>{{end}}
+</div>
+
+<div class="field">
+<label for="ends_on">Enddatum (optional)</label>
+<input id="ends_on" name="ends_on" type="date" value="{{.Data.Values.EndsOn}}" aria-describedby="ends_on-hint{{if index .Errors "ends_on"}} ends_on-error{{end}}"{{if index .Errors "ends_on"}} aria-invalid="true"{{end}}>
+<p class="field-hint" id="ends_on-hint">Der letzte Termin des Eintrags. Ohne Enddatum läuft der Eintrag weiter. Beim Rhythmus „einmalig“ wird das Enddatum ignoriert.</p>
+{{with index .Errors "ends_on"}}<p class="field-error" id="ends_on-error" role="alert">{{.}}</p>{{end}}
+</div>
+
+<div class="field">
+<label for="notes">Notiz (optional)</label>
+<textarea id="notes" name="notes" rows="4" maxlength="1000" autocomplete="off"{{if index .Errors "notes"}} aria-invalid="true" aria-describedby="notes-error"{{end}}>{{.Data.Values.Notes}}</textarea>
+{{with index .Errors "notes"}}<p class="field-error" id="notes-error" role="alert">{{.}}</p>{{end}}
+</div>
+
+<div class="actions">
+<button type="submit">Speichern</button>
+<a class="button button--secondary" href="/entries">Abbrechen</a>
+</div>
+</form>
+
+{{if not .Data.IsNew}}
+<p class="actions"><a class="button button--danger" href="/entries/{{.Data.EntryID}}/delete">Eintrag löschen</a></p>
+{{end}}
+{{end}}

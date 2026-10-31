@@ -1,0 +1,48 @@
+{{define "content"}}
+<h2>Konten</h2>
+<p class="hint">Deaktivierte Konten zählen nicht im Dashboard, in der Reserve und in der Timeline. Ihre Einträge bleiben in der Liste der Einträge sichtbar.</p>
+
+<section class="card">
+<h3 class="card__title">Neues Konto</h3>
+<form method="post" action="/accounts">
+<div class="field">
+<label for="new-name">Name</label>
+<input id="new-name" name="name" type="text" value="{{.Data.NewName}}" maxlength="100" autocomplete="off" required{{if index .Errors "name"}} aria-invalid="true" aria-describedby="new-name-error"{{end}}>
+{{with index .Errors "name"}}<p class="field-error" id="new-name-error" role="alert">{{.}}</p>{{end}}
+</div>
+<div class="actions"><button type="submit">Konto anlegen</button></div>
+</form>
+</section>
+
+<h3>Konten in ihrer Reihenfolge</h3>
+{{if .Data.Rows}}
+<ul class="list account-list">
+{{range .Data.Rows}}
+<li class="list__item">
+<p class="list__title">{{.Name}}</p>
+<p class="list__meta">Status: {{.Status}} · {{.EntryCount}} {{if eq .EntryCount 1}}Eintrag{{else}}Einträge{{end}}</p>
+<div class="actions">
+<form method="post" action="/accounts/{{.ID}}/up">
+<button type="submit"{{if .IsFirst}} disabled{{end}}><span aria-hidden="true">Nach oben</span><span class="visually-hidden">Konto {{.Name}} nach oben</span></button>
+</form>
+<form method="post" action="/accounts/{{.ID}}/down">
+<button type="submit"{{if .IsLast}} disabled{{end}}><span aria-hidden="true">Nach unten</span><span class="visually-hidden">Konto {{.Name}} nach unten</span></button>
+</form>
+<a class="button" href="/accounts/{{.ID}}"><span aria-hidden="true">Umbenennen</span><span class="visually-hidden">Konto {{.Name}} umbenennen</span></a>
+{{if .IsActive}}
+<form method="post" action="/accounts/{{.ID}}/deactivate">
+<button type="submit" class="secondary"><span aria-hidden="true">Deaktivieren</span><span class="visually-hidden">Konto {{.Name}} deaktivieren</span></button>
+</form>
+{{else}}
+<form method="post" action="/accounts/{{.ID}}/activate">
+<button type="submit" class="secondary"><span aria-hidden="true">Aktivieren</span><span class="visually-hidden">Konto {{.Name}} aktivieren</span></button>
+</form>
+{{end}}
+</div>
+</li>
+{{end}}
+</ul>
+{{else}}
+<p class="hint">Es sind noch keine Konten vorhanden.</p>
+{{end}}
+{{end}}

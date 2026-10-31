@@ -8,6 +8,8 @@ Ein ADR hält eine Entscheidung fest, die das Projekt prägt: Kontext, Entscheid
 | [ADR-0002](0002-rappen-und-rundung.md) | Beträge als Rappen (`int64`), Rundung nur bei der Anzeige | accepted | 2026-10-30 |
 | [ADR-0003](0003-kalendertage-utc.md) | Kalendertage als UTC-Mitternacht, Termine nur aus dem Startdatum | accepted | 2026-10-30 |
 | [ADR-0004](0004-naechste-zahlung-pro-konto.md) | Nächste Zahlung pro Konto | accepted | 2026-10-30 |
+| [ADR-0005](0005-origin-pruefung-statt-csrf-token.md) | Origin-Prüfung statt CSRF-Token | accepted | 2026-10-31 |
+| [ADR-0006](0006-timeline-zeitraum-und-monatsgruppen.md) | Zeitraum und Monatsgruppen der Timeline | accepted | 2026-10-31 |
 
 ## Vorlage
 

@@ -93,6 +93,8 @@ err = store.SetAccountActive(ctx, id, false)    // deaktivieren
 err = store.DeleteAccount(ctx, id)              // nur ohne Einträge
 ```
 
+`DeleteAccount` rufst die Oberfläche nicht auf: Sie bietet nur das Deaktivieren an, das umkehrbar ist. Die Web-Schicht führt die Methode darum auch nicht in ihrem `Store`-Interface. Die Bedienung steht unter [Konten](konten.md).
+
 Die Namen der Konten sind case-sensitiv eindeutig: „Lifestyle“ und „lifestyle“ sind zwei verschiedene Konten.
 
 ## Einträge verwalten

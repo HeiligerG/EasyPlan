@@ -60,7 +60,7 @@ Reserve(Konto, N) = Summe aller Fälligkeiten des Kontos im Zeitraum [heute, heu
 - Jede tatsächliche Fälligkeit zählt, auch wenn derselbe Eintrag im Zeitraum mehrfach vorkommt.
 - Der Bereich ist halb offen: der heutige Tag zählt mit, der Tag `heute + N` nicht mehr.
 - Die Reserve nutzt dieselbe Terminberechnung wie die Timeline, beide rufen `plan.Occurrences` auf. Termine entstehen nur in `internal/plan`, dort teilen sich `Occurrences` und `Next` den Kern `nth`.
-- N ist 7, 30 (Standard), 60 oder 90. Die Auswahl auf dem Dashboard folgt mit der Oberfläche in Phase 2.
+- N ist 7, 30 (Standard), 60 oder 90. Die Auswahl steht auf dem [Dashboard](dashboard.md) und wird per Query-Parameter `n` gewählt, sie wird nicht gespeichert.
 
 ```go
 reserve := plan.Reserve(entries, today, 30) // Rappen
@@ -104,6 +104,7 @@ Die Werte sind mit dem Beispiel aus `Konzept.md` §5 im Test `internal/plan/exam
 
 ## Weiterführend
 
+- [Dashboard](dashboard.md): die Auswertung pro Konto und die Auswahl der Reserve
 - [Wiederholungen](wiederholungen.md): Einheiten, Intervalle und Monatsende
 - [ADR-0002: Rappen und Rundung](../adr/0002-rappen-und-rundung.md)
 - [ADR-0004: Nächste Zahlung pro Konto](../adr/0004-naechste-zahlung-pro-konto.md)

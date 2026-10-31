@@ -1,0 +1,45 @@
+{{define "content"}}
+<h2>Einträge</h2>
+<p class="hint">Stand {{date .Data.Today}} · Die Einträge sind nach Konto gruppiert. Ein Klick auf den Namen eines Eintrags öffnet das Formular zum Bearbeiten.</p>
+<p class="actions"><a class="button" href="/entries/new">Eintrag anlegen</a></p>
+
+{{range .Data.Groups}}
+<section class="card">
+<h3 class="card__title">{{.Account.Name}}{{if not .Account.IsActive}} <span class="tag">deaktiviert</span>{{end}}</h3>
+{{if .Entries}}
+<div class="table-wrapper">
+<table class="entries-table">
+<caption class="visually-hidden">Einträge von {{.Account.Name}}</caption>
+<thead>
+<tr>
+<th scope="col">Name</th>
+<th scope="col" class="amount">Betrag</th>
+<th scope="col">Rhythmus</th>
+<th scope="col">Start</th>
+<th scope="col">Ende</th>
+<th scope="col">Status</th>
+</tr>
+</thead>
+<tbody>
+{{range .Entries}}
+<tr>
+<th scope="row"><a class="entry-link" href="/entries/{{.ID}}">{{.Name}}</a></th>
+<td class="amount">{{money .Amount}}</td>
+<td>{{.Rhythm}}</td>
+<td>{{.Start}}</td>
+<td>{{if .End}}bis {{.End}}{{end}}</td>
+<td class="status">
+{{if .Done}}<span class="tag">erledigt</span>{{end}}
+{{if .Ended}}<span class="tag">beendet</span>{{end}}
+</td>
+</tr>
+{{end}}
+</tbody>
+</table>
+</div>
+{{else}}
+<p class="hint">Dieses Konto hat noch keine Einträge.</p>
+{{end}}
+</section>
+{{end}}
+{{end}}

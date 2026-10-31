@@ -1,0 +1,31 @@
+<!DOCTYPE html>
+<html lang="de-CH">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="htmx-config" content='{"allowEval":false,"includeIndicatorStyles":false}'>
+<title>{{.Title}} · EasyPlan</title>
+<link rel="stylesheet" href="/static/style.css">
+<script src="/static/htmx.min.js" defer></script>
+</head>
+<body>
+<header class="site-header">
+<p class="site-header__brand"><a href="/">EasyPlan</a></p>
+<nav class="site-nav" aria-label="Hauptnavigation">
+<ul>
+<li><a href="/"{{if eq .Active "dashboard"}} class="is-active" aria-current="page"{{end}}>Dashboard</a></li>
+<li><a href="/entries"{{if eq .Active "entries"}} class="is-active" aria-current="page"{{end}}>Einträge</a></li>
+<li><a href="/timeline"{{if eq .Active "timeline"}} class="is-active" aria-current="page"{{end}}>Timeline</a></li>
+<li><a href="/accounts"{{if eq .Active "accounts"}} class="is-active" aria-current="page"{{end}}>Konten</a></li>
+</ul>
+</nav>
+</header>
+<main class="site-main">
+{{if .Error}}<p class="message message--error" role="alert">{{.Error}}</p>{{end}}
+{{template "content" .}}
+</main>
+<footer class="site-footer">
+<p>EasyPlan · Fixkosten im Überblick</p>
+</footer>
+</body>
+</html>

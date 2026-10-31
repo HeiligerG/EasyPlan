@@ -1,0 +1,39 @@
+{{define "content"}}
+<h2>Timeline</h2>
+<p class="hint">Stand {{date .Data.Today}} · Die Zahlungen der nächsten zwölf Monate{{if .Data.AccountName}}, nur vom Konto {{.Data.AccountName}}{{end}}.</p>
+
+<form class="timeline-filter" method="get" action="/timeline">
+<div class="field">
+<label for="timeline-account">Konto</label>
+<select id="timeline-account" name="account">
+<option value=""{{if not .Data.AccountID}} selected{{end}}>Alle Konten</option>
+{{range .Data.Accounts}}<option value="{{.ID}}"{{if .Selected}} selected{{end}}>{{.Name}}</option>{{end}}
+</select>
+</div>
+<div class="actions"><button type="submit">Filtern</button></div>
+</form>
+
+{{if .Data.HasPayments}}
+{{range .Data.Months}}
+<section class="card">
+<h3 class="card__title">{{.Title}}</h3>
+{{if .Events}}
+<ul class="list timeline-list">
+{{range .Events}}
+<li class="list__item timeline-item">
+<p class="timeline-item__head"><time class="timeline-item__date" datetime="{{isodate .Date}}">{{.DateText}}</time> <span class="timeline-item__amount">{{money .Amount}}</span></p>
+<p class="timeline-item__name">{{.Name}}</p>
+<p class="timeline-item__account">{{.Account}}</p>
+</li>
+{{end}}
+</ul>
+<p class="timeline-sum">Summe {{money .Sum}}</p>
+{{else}}
+<p class="hint">Keine Zahlungen in diesem Monat.</p>
+{{end}}
+</section>
+{{end}}
+{{else}}
+<p class="message">In den nächsten zwölf Monaten ist keine Zahlung fällig. <a href="/entries">Einträge</a> anlegen, um die Timeline zu füllen.</p>
+{{end}}
+{{end}}

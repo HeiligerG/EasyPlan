@@ -23,4 +23,4 @@ Gleichzeitig sollen Monat, Woche und Tag zueinander passen. Dazu leitet EasyPlan
 - In der Datenbank entstehen keine Rundungsfehler, jeder Betrag ist exakt.
 - Die Währung ist fest CHF. Ein Wechsel der Währung braucht eine neue Entscheidung, weil die Rappen-Zahl dann nichts mehr bedeutet.
 - Wer die Anzeige nachrechnet, sieht eine Abweichung von bis zu 1 Franken. Das ist dokumentiert und gewollt, siehe [Berechnung](../features/berechnung.md).
-- Die Anzeige formatiert die Beträge noch nicht, das folgt mit der Oberfläche in Phase 2.
+- Die Anzeige formatiert die Beträge auf ganze Franken mit dem Tausendertrenner `'. Die Formatierung liegt in der Web-Schicht (`internal/web/money.go`), das Plan-Paket rundet weiterhin nie selbst.
