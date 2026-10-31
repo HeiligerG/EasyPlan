@@ -2,12 +2,12 @@
 
 EasyPlan besteht aus vier Bausteinen. Jeder Baustein hat eine klare Aufgabe, und die Abhängigkeiten laufen in eine Richtung: `internal/web` nutzt `internal/store` und `internal/plan`, `internal/store` nutzt `internal/plan`, `internal/plan` kennt kein anderes Paket.
 
-| Baustein | Aufgabe | Stand in Phase 1 |
+| Baustein | Aufgabe | Stand in Phase 2 |
 |---|---|---|
-| `cmd/easyplan` | Start, Konfiguration aus der Umgebung | Gerüst: liest die Konfiguration und meldet sie |
+| `cmd/easyplan` | Start, Konfiguration aus der Umgebung, HTTP-Server | fertig |
 | `internal/store` | SQLite, Migrationen, Abfragen | fertig |
 | `internal/plan` | reine Berechnung, ohne I/O | fertig |
-| `internal/web` | HTTP-Handler, Templates, statische Dateien | leer, nur Paketdokumentation |
+| `internal/web` | HTTP-Handler, Templates, statische Dateien | fertig |
 
 ## Datenfluss
 
@@ -63,6 +63,62 @@ Termine entstehen nur in `internal/plan`. `plan.Occurrences` liefert alle Termin
 
 Die Regeln für Einheiten, Intervalle und das Monatsende stehen unter [Wiederholungen](features/wiederholungen.md).
 
+## Die Web-Schicht
+
+Das Paket `internal/web` erzeugt den Handler der Anwendung. Seine Dateien:
+
+| Datei | Aufgabe |
+|---|---|
+| `web.go` | Konstruktor, Routen, `PageData`, Rendern der Seiten |
+| `templates.go` | die eingebetteten Templates und die Template-Funktionen |
+| `static.go` | die eingebetteten statischen Dateien (CSS und HTMX) |
+| `origin.go` | die Middleware, die die Herkunft der schreibenden Requests prüft |
+| `security.go` | die Middleware, die die Sicherheits-Header setzt |
+| `money.go` | Formatieren und Parsen der Beträge, Formatieren der Daten |
+| `active.go` | die Einträge, die in den Auswertungen zählen |
+| `summary.go` | die Werte des Dashboards |
+| `dashboard.go` | die Seite des Dashboards und die Auswahl der Reserve |
+| `entries.go` | die Liste der Einträge und das Löschen |
+| `entryform.go` | das Formular eines Eintrags und seine Prüfung |
+| `accounts.go` | die Seite der Konten und ihre Aktionen |
+| `timeline.go` | die Seite der Timeline und ihre Monatsgruppen |
+
+### Ein Muster für alle Seiten
+
+Jede Seite bekommt dieselben Daten:
+
+```go
+type PageData struct {
+    Title  string            // der Titel der Seite
+    Active string            // der Eintrag der Navigation, der aktiv ist
+    Errors map[string]string // die Fehler der Felder, nach Feldnamen
+    Error  string            // ein Hinweis für die ganze Seite
+    Data   any               // die Daten der Seite selbst
+}
+```
+
+Das Layout zeigt Titel, Navigation und Meldungen, ohne die Seite zu kennen. Die `Errors`-Map trägt die Fehler der Prüfung, nach dem Namen des Feldes, damit das Template sie beim richtigen Feld zeigen kann.
+
+### Reine Funktionen neben den Handlern
+
+Die Handler lesen den Store und rendern die Seite. Die Logik, die sich ohne Server prüfen lässt, steht in reinen Funktionen:
+
+| Funktion | Aufgabe |
+|---|---|
+| `BuildSummary` | die Werte des Dashboards aus Konten und Einträgen |
+| `ValidateEntryForm` | die Prüfung des Eintragsformulars |
+| `ValidateAccountName` | die Prüfung eines Kontonamens |
+| `AccountRows` | die Zeilen der Kontenliste |
+| `BuildTimeline` | die Monatsgruppen und die Ereignisse der Timeline |
+| `ParseAccountFilter` | die Kennung des Kontofilters der Query-Zeichenkette |
+| `ParseAmount` | ein Betrag aus dem Text in Rappen |
+
+Sie lesen nichts ausser ihren Argumenten und rufen weder die Datenbank noch die Uhr. Ein Test kann sie deshalb ohne Server und mit einem festen Datum prüfen.
+
+### Die Zeit
+
+Die Handler lesen die Uhr nie selbst. Der Konstruktor bekommt eine Funktion (`Options.Now`) und die Zeitzone (`Options.Location`). Der Start in `cmd/easyplan` setzt die Zone einmal global über `time.Local` und gibt sie der Web-Schicht zusätzlich, damit die Handler nicht über die globale Variable gehen müssen.
+
 ## Nächster Schritt
 
-`internal/web` und der Server in `cmd/easyplan` folgen mit Phase 2. Bis dahin existieren nur die Bausteine `internal/plan` und `internal/store`.
+Phase 3 bringt den Betrieb: Container, Compose-Datei, `/health`, der Backup-Button, der Restore und der GitHub-Actions-Workflow. Die Bedienung der App steht unter [Oberfläche](features/oberflaeche.md), der Start unter [Server und Betrieb](features/server.md).

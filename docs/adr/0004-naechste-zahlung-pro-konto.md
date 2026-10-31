@@ -29,4 +29,4 @@ Diese Regel passt zur Reserve und zur Timeline: beide schliessen den heutigen Ta
 
 - Am Stichtag 1.10.2026 zeigt das Konto Lifestyle „Miete 01.10.2026“, ab dem 2.10.2026 „Krankenkasse 05.10.2026“.
 - Die Spalte „Nächste Zahlung“ im Beispiel von `Konzept.md` §5 wurde am 2026-10-30 an diese Entscheidung angeglichen, dort steht für Lifestyle jetzt „Miete 01.10.“. `Konzept.md` bleibt das ursprüngliche Konzept, verbindlich für die Umsetzung sind der Code und die Doku unter `docs/`. Die Regel steht auch unter [Berechnung](../features/berechnung.md).
-- Die Regel wird mit dem Dashboard in Phase 2 umgesetzt und dort getestet. `plan.Next` und `plan.ActiveOn` liegen dafür bereits vor.
+- Die Regel wird mit dem Dashboard umgesetzt und dort getestet. `plan.Next` und `plan.ActiveOn` liegen dafür bereits vor. Die Anzeige steht unter [Dashboard](../features/dashboard.md).

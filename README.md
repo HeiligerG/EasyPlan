@@ -10,16 +10,17 @@ Erfasst werden nur Ausgaben. Es gibt keine Einnahmen, keine Kontostände und kei
 
 ## Status
 
-**Phase 1 von 3. Die App ist noch nicht lauffähig.**
+**Phase 2 von 3. Die App ist benutzbar, der Betrieb folgt mit Phase 3.**
 
 | Bereich | Stand |
 |---|---|
 | Berechnung (`internal/plan`) | fertig, getestet |
 | Datenspeicher (`internal/store`) | fertig, getestet |
-| Benutzeroberfläche (`internal/web`) | folgt in Phase 2 |
+| Benutzeroberfläche (`internal/web`) | fertig, getestet |
+| Server und Konfiguration (`cmd/easyplan`) | fertig, getestet |
 | Betrieb, Backup, Installation | folgt in Phase 3 |
 
-`go run ./cmd/easyplan` liest heute nur die Konfiguration aus und beendet sich wieder. Es läuft noch kein Server.
+`go run ./cmd/easyplan` startet den Server und legt die Datenbank im Datenordner an. Es gibt noch keinen Healthcheck, kein Container-Image und keine Installationsanleitung, das folgt mit Phase 3.
 
 ## Leitplanken
 
@@ -29,7 +30,18 @@ Erfasst werden nur Ausgaben. Es gibt keine Einnahmen, keine Kontostände und kei
 - Keine eigene Authentifizierung, der Zugriff regelt ein Reverse Proxy.
 - Berechnungen entstehen bei Bedarf live, es werden keine abgeleiteten Daten gespeichert.
 
-## Entwicklung
+## Funktionen
+
+Die Oberfläche besteht aus vier Seiten:
+
+- **Dashboard** (`/`): Bedarf pro Monat, Woche und Tag, Reserve für die nächsten 7, 30, 60 oder 90 Tage und die nächste Zahlung, je Konto und als Total.
+- **Einträge** (`/entries`): alle Einträge, nach Konto gruppiert. Anlegen, bearbeiten mit einem Klick auf die Zeile und löschen mit einer Bestätigungsseite.
+- **Timeline** (`/timeline`): die Zahlungen der nächsten zwölf Monate, nach Monat gruppiert, mit der Summe je Monat und einem Filter auf das Konto.
+- **Konten** (`/accounts`): anlegen, umbenennen, in der Reihenfolge verschieben, aktivieren und deaktivieren.
+
+Alle Seiten funktionieren ohne JavaScript. Die Beträge stehen in ganzen Franken, die Daten im Format `TT.MM.JJJJ`.
+
+## Entwicklung starten
 
 Go 1.27.3 oder neuer ist nötig.
 
@@ -38,12 +50,21 @@ Go 1.27.3 oder neuer ist nötig.
 go vet ./...
 go test ./...
 
-# Starten (Daten in ./data, Server folgt mit Phase 2)
-export EASYPLAN_DATA=./data
-go run ./cmd/easyplan
+# App starten, erreichbar unter http://127.0.0.1:8080
+EASYPLAN_ADDR=127.0.0.1:8080 EASYPLAN_DATA=./data go run ./cmd/easyplan
 ```
 
-Die Umgebungsvariablen: `EASYPLAN_ADDR` (Standard `:8080`), `EASYPLAN_DATA` (Standard `/data`) und `TZ` (Standard `Europe/Zurich`).
+Die Umgebungsvariablen:
+
+| Variable | Standard | Bedeutung |
+|---|---|---|
+| `EASYPLAN_ADDR` | `:8080` | Listen-Adresse |
+| `EASYPLAN_DATA` | `/data` | Ordner der SQLite-Datei `easyplan.db` |
+| `TZ` | `Europe/Zurich` | Zeitzone |
+
+Der Datenordner wird beim Start angelegt, wenn er noch nicht existiert. Eine ungültige Zeitzone bricht den Start mit einer Meldung ab.
+
+> **Achtung:** Der Standardwert `EASYPLAN_ADDR=:8080` hört auf **allen** Schnittstellen des Rechners. EasyPlan hat keine eigene Authentifizierung, der Zugriff soll ein Reverse Proxy regeln. Für die lokale Entwicklung darum `127.0.0.1:8080` setzen, wie oben.
 
 ## Dokumentation
 
@@ -61,6 +82,14 @@ Inhalt:
 
 - [Überblick und Status](docs/index.md)
 - [Architektur](docs/architecture.md)
+- [Oberfläche](docs/features/oberflaeche.md)
+- [Dashboard](docs/features/dashboard.md)
+- [Einträge](docs/features/eintraege.md)
+- [Timeline](docs/features/timeline.md)
+- [Konten](docs/features/konten.md)
+- [Formate](docs/features/formate.md)
+- [Server und Betrieb](docs/features/server.md)
+- [Sicherheit](docs/features/sicherheit.md)
 - [Berechnung](docs/features/berechnung.md)
 - [Wiederholungen](docs/features/wiederholungen.md)
 - [Datenspeicher](docs/features/datenspeicher.md)
@@ -70,6 +99,8 @@ Inhalt:
 ## Betrieb
 
 Installation, Container, Datensicherung, Wiederherstellung und ein Beispiel für einen Reverse Proxy mit TLS folgen mit Phase 3. Es gibt dazu heute noch keine Anleitung, weil es noch nichts zu installieren gibt.
+
+Wichtig für den Betrieb: Die Anwendung prüft bei jedem schreibenden Request, dass der `Origin`-Header zum `Host` passt. Ein Reverse Proxy muss darum den `Host`-Header erhalten, sonst sind alle Schreibzugriffe gesperrt. Die Einzelheiten stehen unter [Sicherheit](docs/features/sicherheit.md).
 
 ## Lizenz
 

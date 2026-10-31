@@ -36,6 +36,14 @@ nav:
   - Start: index.md
   - Architektur: architecture.md
   - Funktionen:
+    - Oberfläche: features/oberflaeche.md
+    - Dashboard: features/dashboard.md
+    - Einträge: features/eintraege.md
+    - Timeline: features/timeline.md
+    - Konten: features/konten.md
+    - Formate: features/formate.md
+    - Server und Betrieb: features/server.md
+    - Sicherheit: features/sicherheit.md
     - Berechnung: features/berechnung.md
     - Wiederholungen: features/wiederholungen.md
     - Datenspeicher: features/datenspeicher.md
@@ -45,6 +53,8 @@ nav:
     - "ADR-0002: Rappen und Rundung": adr/0002-rappen-und-rundung.md
     - "ADR-0003: Kalendertage in UTC": adr/0003-kalendertage-utc.md
     - "ADR-0004: Nächste Zahlung pro Konto": adr/0004-naechste-zahlung-pro-konto.md
+    - "ADR-0005: Origin-Prüfung statt CSRF-Token": adr/0005-origin-pruefung-statt-csrf-token.md
+    - "ADR-0006: Zeitraum und Monatsgruppen der Timeline": adr/0006-timeline-zeitraum-und-monatsgruppen.md
   - Beitragen: contributing.md
   - Changelog: changelog.md
 

@@ -27,4 +27,4 @@ Zwei Fehlerquellen sind zu vermeiden:
 - Ein monatlicher Eintrag bleibt am selben Tag des Monats: 31.01.2026, 28.02.2026, 31.03.2026, 30.04.2026.
 - Ein jährlicher Eintrag vom 29.02.2028 läuft am 28.02. der Folgejahre weiter und kommt am 29.02.2032 zurück, weil der Tag jedes Mal neu aus dem Startdatum abgeleitet wird.
 - Das Plan-Paket bleibt rein: kein I/O, kein `time.Now()`. Ein Test im Paket prüft das.
-- Wer Termine anzeigt, muss sie in der lokalen Zeitzone (`TZ`) formatieren. Das folgt mit der Oberfläche in Phase 2.
+- Wer Termine anzeigt, muss sie in der lokalen Zeitzone (`TZ`) formatieren. Die Web-Schicht bekommt die Zone über `Options.Location` und bestimmt damit den heutigen Tag. Die Termine selbst bleiben Kalendertage ohne Uhrzeit, ein Termin vom 1.10. ist in jeder Zone der 1.10.
