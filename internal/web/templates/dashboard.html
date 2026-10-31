@@ -1,0 +1,50 @@
+{{define "content"}}
+<h2>Dashboard</h2>
+<p class="hint">Stand {{date .Data.Today}} · Reserve für {{.Data.Days}} Tage</p>
+
+<nav class="periods" aria-label="Zeitraum der Reserve">
+{{range .Data.Options}}<a class="period{{if eq . $.Data.Days}} is-active{{end}}" href="/?n={{.}}"{{if eq . $.Data.Days}} aria-current="true"{{end}}>{{.}} Tage</a>{{end}}
+</nav>
+
+{{if .Data.Summary.Entries}}
+<div class="table-wrapper">
+<table class="summary-table">
+<caption>Fixkosten je Konto</caption>
+<thead>
+<tr>
+<th scope="col">Konto</th>
+<th scope="col" class="amount">Monat</th>
+<th scope="col" class="amount">Woche</th>
+<th scope="col" class="amount">Tag</th>
+<th scope="col" class="amount">Reserve {{.Data.Days}} Tage</th>
+<th scope="col">Nächste Zahlung</th>
+</tr>
+</thead>
+<tbody>
+{{range .Data.Summary.Rows}}
+<tr>
+<th scope="row">{{.Name}}</th>
+<td class="amount">{{amount .Need.Month}}</td>
+<td class="amount">{{amount .Need.Week}}</td>
+<td class="amount">{{amount .Need.Day}}</td>
+<td class="amount">{{money .Reserve}}</td>
+<td>{{if .HasNext}}{{.NextName}} {{date .NextDate}}{{else}}–{{end}}</td>
+</tr>
+{{end}}
+</tbody>
+<tfoot>
+<tr>
+<th scope="row">Total</th>
+<td class="amount">{{amount .Data.Summary.Total.Need.Month}}</td>
+<td class="amount">{{amount .Data.Summary.Total.Need.Week}}</td>
+<td class="amount">{{amount .Data.Summary.Total.Need.Day}}</td>
+<td class="amount">{{money .Data.Summary.Total.Reserve}}</td>
+<td></td>
+</tr>
+</tfoot>
+</table>
+</div>
+{{else}}
+<p class="message">Es sind noch keine aktiven Einträge vorhanden. <a href="/entries">Einträge</a> anlegen, um die Fixkosten zu berechnen.</p>
+{{end}}
+{{end}}

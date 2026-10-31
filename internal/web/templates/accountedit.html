@@ -1,0 +1,16 @@
+{{define "content"}}
+<h2>Konto umbenennen</h2>
+<p class="hint">Der neue Name muss eindeutig sein. Zwei Konten mit genau gleichem Namen sind nicht erlaubt. Die Gross- und Kleinschreibung zählt, „Lifestyle“ und „lifestyle“ sind zwei verschiedene Namen.</p>
+
+<form method="post" action="{{.Data.Action}}">
+<div class="field">
+<label for="name">Name</label>
+<input id="name" name="name" type="text" value="{{.Data.Name}}" maxlength="100" autocomplete="off" required{{if index .Errors "name"}} aria-invalid="true" aria-describedby="name-error"{{end}}>
+{{with index .Errors "name"}}<p class="field-error" id="name-error" role="alert">{{.}}</p>{{end}}
+</div>
+<div class="actions">
+<button type="submit">Speichern</button>
+<a class="button button--secondary" href="/accounts">Abbrechen</a>
+</div>
+</form>
+{{end}}

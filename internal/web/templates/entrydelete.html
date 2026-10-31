@@ -1,0 +1,13 @@
+{{define "content"}}
+<h2>Eintrag löschen</h2>
+<div class="card">
+<p>Soll der Eintrag <strong>{{.Data.Name}}</strong> wirklich gelöscht werden? Das Löschen lässt sich nicht rückgängig machen.</p>
+<form method="post" action="/entries/{{.Data.ID}}/delete">
+<div class="actions">
+<button type="submit" class="danger">Ja, löschen</button>
+<a class="button button--secondary" href="/entries/{{.Data.ID}}">Abbrechen</a>
+</div>
+</form>
+</div>
+<p><a href="/entries">Zurück zur Liste</a></p>
+{{end}}

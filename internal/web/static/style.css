@@ -1,0 +1,633 @@
+/*
+ * EasyPlan — the whole interface in one stylesheet.
+ *
+ * Mobile first: the layout starts with one column and becomes wider with a
+ * media query. No dark mode, no charts, no framework, no build step.
+ */
+
+*,
+*::before,
+*::after {
+  box-sizing: border-box;
+}
+
+:root {
+  --color-text: #1b1f23;
+  --color-muted: #5c6773;
+  --color-background: #ffffff;
+  --color-surface: #f4f5f7;
+  --color-border: #d6dbe0;
+  --color-accent: #1c5fd0;
+  --color-accent-dark: #16489c;
+  --color-error-background: #fdecec;
+  --color-error-border: #e2b3b3;
+  --color-error-text: #8c1d1d;
+  --radius: 6px;
+  --gap: 1rem;
+  --measure: 68rem;
+}
+
+html {
+  -webkit-text-size-adjust: 100%;
+}
+
+body {
+  margin: 0;
+  background: var(--color-background);
+  color: var(--color-text);
+  font-family: system-ui, -apple-system, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+  font-size: 1rem;
+  line-height: 1.5;
+}
+
+h1,
+h2,
+h3 {
+  line-height: 1.25;
+  margin: 0 0 0.5rem;
+}
+
+h2 {
+  font-size: 1.375rem;
+}
+
+h3 {
+  font-size: 1.125rem;
+}
+
+p {
+  margin: 0 0 0.75rem;
+}
+
+a {
+  color: var(--color-accent);
+}
+
+a:hover,
+a:focus-visible {
+  color: var(--color-accent-dark);
+}
+
+:focus-visible {
+  outline: 2px solid var(--color-accent);
+  outline-offset: 2px;
+}
+
+/* Header and navigation */
+
+.site-header {
+  border-bottom: 1px solid var(--color-border);
+  background: var(--color-surface);
+}
+
+.site-header__brand {
+  margin: 0;
+  padding: 0.75rem var(--gap) 0.25rem;
+  font-size: 1.125rem;
+  font-weight: 700;
+}
+
+.site-header__brand a {
+  color: var(--color-text);
+  text-decoration: none;
+}
+
+.site-nav ul {
+  display: flex;
+  gap: 0.25rem;
+  margin: 0;
+  padding: 0 var(--gap) 0.5rem;
+  list-style: none;
+  overflow-x: auto;
+}
+
+.site-nav a {
+  display: block;
+  padding: 0.375rem 0.75rem;
+  border-radius: var(--radius);
+  color: var(--color-text);
+  text-decoration: none;
+  white-space: nowrap;
+}
+
+.site-nav a:hover,
+.site-nav a:focus-visible {
+  background: #e6e9ec;
+}
+
+.site-nav a.is-active {
+  background: var(--color-accent);
+  color: #ffffff;
+}
+
+/* Main area */
+
+.site-main {
+  max-width: var(--measure);
+  margin: 0 auto;
+  padding: var(--gap);
+}
+
+.site-footer {
+  max-width: var(--measure);
+  margin: 0 auto;
+  padding: 0 var(--gap) 2rem;
+  color: var(--color-muted);
+  font-size: 0.875rem;
+}
+
+.hint {
+  color: var(--color-muted);
+}
+
+/* Messages */
+
+.message {
+  margin: 0 0 var(--gap);
+  padding: 0.75rem;
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius);
+  background: var(--color-surface);
+}
+
+.message--error {
+  border-color: var(--color-error-border);
+  background: var(--color-error-background);
+  color: var(--color-error-text);
+}
+
+.field-error {
+  margin: 0.25rem 0 0;
+  color: var(--color-error-text);
+  font-size: 0.875rem;
+}
+
+.field-hint {
+  margin: 0.25rem 0 0;
+  color: var(--color-muted);
+  font-size: 0.875rem;
+}
+
+.visually-hidden {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  margin: -1px;
+  padding: 0;
+  overflow: hidden;
+  clip-path: inset(50%);
+  white-space: nowrap;
+  border: 0;
+}
+
+/* Cards */
+
+.card {
+  margin: 0 0 var(--gap);
+  padding: var(--gap);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius);
+  background: var(--color-background);
+}
+
+.card__title {
+  margin-top: 0;
+}
+
+/* Tables */
+
+.table-wrapper {
+  overflow-x: auto;
+}
+
+table {
+  width: 100%;
+  border-collapse: collapse;
+}
+
+caption {
+  padding-bottom: 0.5rem;
+  color: var(--color-muted);
+  font-size: 0.875rem;
+  text-align: left;
+}
+
+th,
+td {
+  padding: 0.5rem 0.75rem;
+  border-bottom: 1px solid var(--color-border);
+  text-align: left;
+  vertical-align: top;
+}
+
+th {
+  font-size: 0.875rem;
+  text-transform: uppercase;
+  letter-spacing: 0.02em;
+  color: var(--color-muted);
+}
+
+td.amount,
+th.amount {
+  text-align: right;
+  font-variant-numeric: tabular-nums;
+}
+
+/* Forms */
+
+form {
+  margin: 0 0 var(--gap);
+}
+
+.field {
+  margin: 0 0 0.75rem;
+}
+
+.field label {
+  display: block;
+  margin-bottom: 0.25rem;
+  font-size: 0.875rem;
+  font-weight: 600;
+}
+
+input,
+select,
+textarea {
+  width: 100%;
+  max-width: 24rem;
+  padding: 0.5rem;
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius);
+  background: var(--color-background);
+  color: inherit;
+  font: inherit;
+}
+
+textarea {
+  min-height: 5rem;
+}
+
+input[type="checkbox"],
+input[type="radio"] {
+  width: auto;
+  max-width: none;
+}
+
+.actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.5rem;
+}
+
+/*
+ * The forms of the actions hold nothing but a button, so they must not carry
+ * the margin of the other forms.
+ */
+
+.actions form {
+  margin: 0;
+}
+
+button,
+.button {
+  display: inline-block;
+  padding: 0.5rem 0.875rem;
+  border: 1px solid var(--color-accent);
+  border-radius: var(--radius);
+  background: var(--color-accent);
+  color: #ffffff;
+  font: inherit;
+  text-decoration: none;
+  cursor: pointer;
+}
+
+/*
+ * A button can be a link as well. The rule of the links changes the colour of
+ * the text when the button is hovered or focused, and the text would be as
+ * dark as the background of the button. The buttons keep their own colour, so
+ * they stay readable on every background.
+ */
+
+button:hover,
+.button:hover,
+button:focus-visible,
+.button:focus-visible {
+  background: var(--color-accent-dark);
+  border-color: var(--color-accent-dark);
+  color: #ffffff;
+}
+
+/*
+ * A button that would change nothing stays visible, but it is switched off
+ * and does not change its colour either.
+ */
+
+button[disabled] {
+  border-color: var(--color-border);
+  background: var(--color-surface);
+  color: var(--color-muted);
+  cursor: not-allowed;
+}
+
+button[disabled]:hover,
+button[disabled]:focus-visible {
+  background: var(--color-surface);
+  border-color: var(--color-border);
+}
+
+.button--secondary,
+button.secondary {
+  border-color: var(--color-border);
+  background: var(--color-background);
+  color: var(--color-text);
+}
+
+.button--secondary:hover,
+button.secondary:hover,
+.button--secondary:focus-visible,
+button.secondary:focus-visible {
+  background: var(--color-surface);
+  border-color: var(--color-border);
+  color: var(--color-text);
+}
+
+.button--danger,
+button.danger {
+  border-color: #a32222;
+  background: #a32222;
+  color: #ffffff;
+}
+
+.button--danger:hover,
+button.danger:hover,
+.button--danger:focus-visible,
+button.danger:focus-visible {
+  border-color: #861c1c;
+  background: #861c1c;
+  color: #ffffff;
+}
+
+/* Summary of the dashboard */
+
+.summary {
+  display: grid;
+  gap: 0.25rem var(--gap);
+  margin: 0 0 var(--gap);
+}
+
+.summary dt {
+  color: var(--color-muted);
+  font-size: 0.875rem;
+}
+
+.summary dd {
+  margin: 0;
+  font-size: 1.25rem;
+  font-weight: 600;
+  font-variant-numeric: tabular-nums;
+}
+
+/* Selection of the period of the reserve */
+
+.periods {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.5rem;
+  margin: 0 0 var(--gap);
+}
+
+.periods a {
+  display: inline-block;
+  padding: 0.375rem 0.75rem;
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius);
+  background: var(--color-background);
+  color: var(--color-text);
+  text-decoration: none;
+}
+
+.periods a:hover,
+.periods a:focus-visible {
+  border-color: var(--color-accent);
+  color: var(--color-accent-dark);
+}
+
+.periods a.is-active {
+  border-color: var(--color-accent);
+  background: var(--color-accent);
+  color: #ffffff;
+}
+
+/* Table of the dashboard */
+
+.summary-table {
+  min-width: 34rem;
+}
+
+.summary-table tbody th,
+.summary-table tfoot th {
+  font-size: 1rem;
+  text-transform: none;
+  letter-spacing: normal;
+  color: var(--color-text);
+}
+
+.summary-table tbody th {
+  font-weight: 600;
+}
+
+.summary-table tfoot th,
+.summary-table tfoot td {
+  border-top: 2px solid var(--color-border);
+  border-bottom: 0;
+  font-weight: 700;
+}
+
+/* Table of the entries */
+
+.entries-table {
+  min-width: 42rem;
+}
+
+.entries-table tbody th {
+  font-size: 1rem;
+  font-weight: 600;
+  text-transform: none;
+  letter-spacing: normal;
+  color: var(--color-text);
+}
+
+.entries-table tbody tr {
+  position: relative;
+}
+
+.entries-table tbody tr:hover {
+  background: var(--color-surface);
+}
+
+/*
+ * The link in the name fills the whole row, so a click anywhere in the row
+ * opens the form of the entry. The link itself stays a link, so the row is
+ * reachable with the keyboard and without JavaScript.
+ */
+
+.entries-table .entry-link::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+}
+
+.entries-table .status {
+  white-space: nowrap;
+}
+
+/* Marks like „erledigt“ and „deaktiviert“ */
+
+.tag {
+  display: inline-block;
+  padding: 0.0625rem 0.375rem;
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius);
+  background: var(--color-surface);
+  color: var(--color-muted);
+  font-size: 0.75rem;
+  white-space: nowrap;
+}
+
+.tag + .tag {
+  margin-left: 0.25rem;
+}
+
+/* Lists of entries and accounts */
+
+.list {
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.list__item {
+  padding: 0.75rem 0;
+  border-bottom: 1px solid var(--color-border);
+}
+
+.list__item:last-child {
+  border-bottom: 0;
+}
+
+.list__title {
+  font-weight: 600;
+}
+
+.list__meta {
+  color: var(--color-muted);
+  font-size: 0.875rem;
+}
+
+/*
+ * The list of the accounts. Every item holds the name, the state and the
+ * number of the entries, then the buttons that change the account.
+ */
+
+.account-list .list__title {
+  margin: 0 0 0.125rem;
+}
+
+.account-list .list__meta {
+  margin: 0 0 0.5rem;
+}
+
+/* Timeline */
+
+/*
+ * The filter of the timeline. The selection and the button stand next to each
+ * other as long as there is room for them.
+ */
+
+.timeline-filter {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: flex-end;
+  gap: 0.5rem var(--gap);
+}
+
+.timeline-filter .field {
+  flex: 1 1 12rem;
+  margin-bottom: 0;
+}
+
+.timeline-filter select {
+  max-width: none;
+}
+
+/*
+ * The payments of a month. Every payment is an item of the list: the day and
+ * the amount share the first line, the name of the entry and the name of the
+ * account follow below.
+ */
+
+.timeline-item__head {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: space-between;
+  gap: 0.25rem 0.5rem;
+  margin: 0;
+}
+
+.timeline-item__date {
+  white-space: nowrap;
+}
+
+.timeline-item__amount {
+  font-weight: 600;
+  font-variant-numeric: tabular-nums;
+}
+
+.timeline-item__name {
+  margin: 0.125rem 0 0;
+  font-weight: 600;
+  overflow-wrap: anywhere;
+}
+
+.timeline-item__account {
+  margin: 0;
+  color: var(--color-muted);
+  font-size: 0.875rem;
+  overflow-wrap: anywhere;
+}
+
+.timeline-sum {
+  margin: 0.75rem 0 0;
+  padding-top: 0.5rem;
+  border-top: 1px solid var(--color-border);
+  font-weight: 600;
+  text-align: right;
+  font-variant-numeric: tabular-nums;
+}
+
+/* Wider screens */
+
+@media (min-width: 40rem) {
+  .site-header {
+    display: flex;
+    align-items: center;
+    gap: var(--gap);
+    padding: 0.5rem var(--gap);
+  }
+
+  .site-header__brand {
+    padding: 0;
+  }
+
+  .site-nav {
+    margin-left: auto;
+  }
+
+  .site-nav ul {
+    padding: 0;
+  }
+
+  .site-main {
+    padding: 1.5rem var(--gap);
+  }
+}
