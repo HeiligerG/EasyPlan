@@ -105,6 +105,20 @@ func (s *Store) init(ctx context.Context) error {
 	return nil
 }
 
+// Ping checks that the database can be reached.
+//
+// The check takes a connection from the pool and lets the driver test it. The
+// driver answers with a select of a constant (select 1), it reads no data of
+// the database. The check does not look at the file of the database and it
+// does not try to write, so a check of the health of the application does not
+// change the state of the application.
+func (s *Store) Ping(ctx context.Context) error {
+	if err := s.db.PingContext(ctx); err != nil {
+		return fmt.Errorf("store: cannot reach the database: %w", err)
+	}
+	return nil
+}
+
 // Close closes the database.
 func (s *Store) Close() error {
 	if err := s.db.Close(); err != nil {

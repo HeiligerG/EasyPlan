@@ -10,6 +10,9 @@
 //   - templates.go loads the embedded templates and the template functions.
 //   - static.go serves the embedded CSS and HTMX file.
 //   - origin.go and security.go hold the middlewares.
+//   - health.go answers the check of the health of the application.
+//   - backup.go writes the copy of the database, sends it as a download and
+//     removes the temporary directories that a killed backup left behind.
 //   - money.go formats and parses the amounts.
 //   - entries.go serves the list of the entries and the deletion.
 //   - entryform.go holds the form of an entry and its validation.

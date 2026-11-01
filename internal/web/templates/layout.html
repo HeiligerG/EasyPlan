@@ -26,6 +26,11 @@
 </main>
 <footer class="site-footer">
 <p>EasyPlan · Fixkosten im Überblick</p>
+{{if .BackupAvailable}}
+<form class="site-footer__backup" method="post" action="/backup">
+<button type="submit" class="secondary">Backup herunterladen</button>
+</form>
+{{end}}
 </footer>
 </body>
 </html>
