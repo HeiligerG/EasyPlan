@@ -111,8 +111,11 @@ updates:
       - "dependencies"
     groups:
       docs-tools:
+        # The documentation tools can be coupled, e.g. pymdown-extensions and
+        # mkdocs-material: a new version of one tool can require a version of
+        # another tool that the version range in requirements-docs.txt does
+        # not allow. All update types are grouped, so that changes to the
+        # coupled tools arrive in one pull request. Resolvability is checked
+        # by the docs job in ci.yml.
         patterns:
           - "*"
-        update-types:
-          - "minor"
-          - "patch"

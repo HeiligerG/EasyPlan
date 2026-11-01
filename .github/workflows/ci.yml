@@ -95,6 +95,11 @@ jobs:
         with:
           python-version: '3.12'
 
+      - name: Check documentation requirements
+        # Resolves the requirements before installation; a failure is
+        # reported here as a separate step.
+        run: pip install --dry-run -r requirements-docs.txt
+
       - name: Install documentation tools
         run: pip install -r requirements-docs.txt
 
