@@ -376,6 +376,36 @@ func TestOpen_fails_when_the_path_is_a_directory(t *testing.T) {
 	}
 }
 
+// TestPing_succeeds_with_an_open_database checks that the check of the
+// connection to the database succeeds while the database is open.
+func TestPing_succeeds_with_an_open_database(t *testing.T) {
+	s := newMemoryStore(t)
+
+	if err := s.Ping(context.Background()); err != nil {
+		t.Errorf("Ping() failed: %v", err)
+	}
+}
+
+// TestPing_fails_with_a_closed_database checks that the check of the
+// connection to the database fails after the database was closed.
+func TestPing_fails_with_a_closed_database(t *testing.T) {
+	s, err := OpenMemory()
+	if err != nil {
+		t.Fatalf("OpenMemory() failed: %v", err)
+	}
+	if err := s.Close(); err != nil {
+		t.Fatalf("Close() failed: %v", err)
+	}
+
+	err = s.Ping(context.Background())
+	if err == nil {
+		t.Fatal("Ping() succeeded with a closed database, want an error")
+	}
+	if !strings.Contains(err.Error(), "store:") {
+		t.Errorf("the error %q does not name the store", err)
+	}
+}
+
 // equalStrings reports whether two string slices are equal.
 func equalStrings(a, b []string) bool {
 	if len(a) != len(b) {

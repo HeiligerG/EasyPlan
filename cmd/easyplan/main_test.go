@@ -2,6 +2,8 @@ package main
 
 import (
 	"context"
+	"net/http"
+	"net/http/httptest"
 	"strings"
 	"testing"
 )
@@ -18,15 +20,35 @@ func TestRun_rejects_an_unknown_subcommand(t *testing.T) {
 	}
 }
 
-// TestRun_reports_the_subcommand_that_is_not_implemented checks the
-// placeholder of the healthcheck, which arrives with Phase 3.
-func TestRun_reports_the_subcommand_that_is_not_implemented(t *testing.T) {
+// TestRun_fails_with_a_healthcheck_that_cannot_reach_the_server checks the
+// subcommand healthcheck against an address where no server listens.
+//
+// The address comes from the environment, so the test does not depend on the
+// port 8080 of the default.
+func TestRun_fails_with_a_healthcheck_that_cannot_reach_the_server(t *testing.T) {
+	t.Setenv("EASYPLAN_ADDR", freeAddress(t))
+
 	err := run([]string{"healthcheck"})
 	if err == nil {
 		t.Fatal("run() accepted the subcommand, want an error")
 	}
 	if !strings.Contains(err.Error(), "healthcheck") {
 		t.Errorf("run() failed with %q, want an error about the subcommand healthcheck", err)
+	}
+}
+
+// TestRun_succeeds_with_a_healthy_server checks the subcommand healthcheck
+// against a server that answers with 200.
+func TestRun_succeeds_with_a_healthy_server(t *testing.T) {
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		_, _ = w.Write([]byte("ok"))
+	}))
+	defer server.Close()
+
+	t.Setenv("EASYPLAN_ADDR", serverAddress(server))
+
+	if err := run([]string{"healthcheck"}); err != nil {
+		t.Errorf("run() failed: %v", err)
 	}
 }
 
@@ -38,8 +60,10 @@ func TestReadConfig_uses_the_defaults(t *testing.T) {
 	t.Setenv("TZ", "")
 
 	cfg := readConfig()
-	if cfg.addr != defaultAddr {
-		t.Errorf("the address is %q, want %q", cfg.addr, defaultAddr)
+	// The default listens on the loopback interface only, the access is
+	// regulated by a reverse proxy.
+	if cfg.addr != "127.0.0.1:8080" {
+		t.Errorf("the address is %q, want %q", cfg.addr, "127.0.0.1:8080")
 	}
 	if cfg.data != defaultData {
 		t.Errorf("the data directory is %q, want %q", cfg.data, defaultData)
