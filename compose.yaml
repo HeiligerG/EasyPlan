@@ -1,0 +1,36 @@
+# Compose file for EasyPlan (Konzept.md, section 8).
+#
+# Start:  docker compose up -d
+# The service listens on 127.0.0.1 only, access is handled by a reverse proxy.
+services:
+  easyplan:
+    # The image name is used for the locally built image; "docker compose up"
+    # builds it from the Dockerfile and tags it as easyplan:local.
+    image: easyplan:local
+    build: .
+    restart: unless-stopped
+    # The root file system stays read-only, only /data is written.
+    read_only: true
+    # Longer than the shutdown timeout of 10 s in cmd/easyplan/main.go, so the
+    # server can finish its requests before the container is killed.
+    stop_grace_period: 15s
+    ports:
+      - "127.0.0.1:8080:8080"
+    volumes:
+      # The directory must belong to UID 65532 (nonroot), otherwise the
+      # container cannot create the database:
+      #   sudo chown 65532:65532 ./data
+      - ./data:/data
+    environment:
+      TZ: Europe/Zurich
+      # EASYPLAN_ADDR and EASYPLAN_DATA are set by the image (see Dockerfile).
+    security_opt:
+      - no-new-privileges:true
+    cap_drop:
+      - ALL
+    # Rotate the container log instead of letting it grow without bounds.
+    logging:
+      driver: json-file
+      options:
+        max-size: "10m"
+        max-file: "3"

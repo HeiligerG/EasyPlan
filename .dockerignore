@@ -1,0 +1,32 @@
+# Git
+.git
+.gitignore
+
+# Runtime data (SQLite database and its WAL files)
+data/
+*.db
+*.db-wal
+*.db-shm
+
+# Plans and notes of the project
+.kilo/
+
+# Documentation
+docs/
+site/
+.venv-docs/
+requirements-docs.txt
+
+# Output of build and test
+/easyplan
+/easyplan.exe
+/bin/
+/dist/
+*.test
+*.out
+
+# Tools and editors
+.idea/
+.vscode/
+*.swp
+.DS_Store
