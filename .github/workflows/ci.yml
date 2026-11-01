@@ -1,0 +1,114 @@
+# Continuous integration for EasyPlan: build, vet, format, tests, docs and image.
+# Read only: no push, no registry login, no secrets.
+name: CI
+
+on:
+  push:
+    branches:
+      - master
+  pull_request:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  # A superseded pull request run is cancelled, a push run on master is not:
+  # master runs must always finish and leave a complete result behind.
+  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
+
+jobs:
+  go:
+    name: Go (format, vet, build, test)
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          # The token is not needed after the checkout, it stays out of the
+          # git configuration of the workspace.
+          persist-credentials: false
+
+      - name: Set up Go (version from go.mod)
+        uses: actions/setup-go@b7ad1dad31e06c5925ef5d2fc7ad053ef454303e # v7.0.0
+        with:
+          go-version-file: go.mod
+
+      - name: Check formatting
+        # Fails when gofmt reports any file.
+        run: |
+          unformatted="$(gofmt -l .)"
+          if [ -n "$unformatted" ]; then
+            echo "These files are not formatted with gofmt:"
+            echo "$unformatted"
+            exit 1
+          fi
+
+      - name: Vet
+        run: go vet ./...
+
+      - name: Build without CGO
+        env:
+          CGO_ENABLED: "0"
+        run: go build ./...
+
+      - name: Test
+        run: go test ./... -race -count=1
+
+  vulncheck:
+    name: Vulnerability scan (govulncheck)
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+
+      - name: Set up Go (version from go.mod)
+        uses: actions/setup-go@b7ad1dad31e06c5925ef5d2fc7ad053ef454303e # v7.0.0
+        with:
+          go-version-file: go.mod
+
+      - name: Install govulncheck
+        # Pinned version, the newest stable release of golang.org/x/vuln.
+        run: go install golang.org/x/vuln/cmd/govulncheck@v1.9.0
+
+      - name: Make govulncheck available in PATH
+        run: echo "$(go env GOPATH)/bin" >> "$GITHUB_PATH"
+
+      - name: Scan for known vulnerabilities
+        # Reports vulnerabilities of the standard library and of the modules
+        # that are actually reachable in the code.
+        run: govulncheck ./...
+
+  docs:
+    name: Docs (MkDocs, strict)
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+
+      - name: Set up Python
+        uses: actions/setup-python@6d4fd22b20465ccc0f7354476588e8df7c9ca0e0 # v7.1.0
+        with:
+          python-version: '3.12'
+
+      - name: Install documentation tools
+        run: pip install -r requirements-docs.txt
+
+      - name: Build documentation
+        run: mkdocs build --strict
+
+  docker:
+    name: Docker image
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+
+      - name: Build image
+        run: docker build .

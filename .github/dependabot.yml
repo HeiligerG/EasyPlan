@@ -1,0 +1,118 @@
+# Dependabot configuration for EasyPlan.
+#
+# Rhythm: weekly on Monday at 06:00 (Europe/Zurich). Every update pull request
+# is checked by the CI workflow (.github/workflows/ci.yml).
+#
+# Go version: go.mod (go 1.27.3) names the minimum version, the Dockerfile
+# (golang:1.27.3-bookworm) the builder image. In the "gomod" ecosystem only
+# module paths are dependencies, the go directive of go.mod is no dependency
+# and therefore cannot be excluded with "ignore".
+# Patch updates of the Go image (1.27.3 -> 1.27.4) are therefore allowed and
+# arrive as their own pull request: they bring fixes of the standard library
+# into the shipped binary, and the build stays valid, because go.mod only names
+# the minimum version. Minor and major changes of the Go version stay blocked
+# and are made manually in a commit that changes go.mod and the Dockerfile
+# together.
+
+version: 2
+
+updates:
+  # GitHub Actions in the CI workflow.
+  - package-ecosystem: "github-actions"
+    directory: "/"
+    schedule:
+      interval: "weekly"
+      day: "monday"
+      time: "06:00"
+      timezone: "Europe/Zurich"
+    open-pull-requests-limit: 5
+    commit-message:
+      prefix: "ci(deps)"
+    labels:
+      - "dependencies"
+      - "github_actions"
+    groups:
+      actions:
+        patterns:
+          - "*"
+        update-types:
+          - "minor"
+          - "patch"
+
+  # Go modules in go.mod and go.sum.
+  - package-ecosystem: "gomod"
+    directory: "/"
+    schedule:
+      interval: "weekly"
+      day: "monday"
+      time: "06:00"
+      timezone: "Europe/Zurich"
+    open-pull-requests-limit: 5
+    commit-message:
+      prefix: "build(deps)"
+    labels:
+      - "dependencies"
+    groups:
+      go-modules:
+        patterns:
+          - "*"
+        update-types:
+          - "minor"
+          - "patch"
+
+  # Base images in the Dockerfile.
+  - package-ecosystem: "docker"
+    directory: "/"
+    schedule:
+      interval: "weekly"
+      day: "monday"
+      time: "06:00"
+      timezone: "Europe/Zurich"
+    open-pull-requests-limit: 5
+    commit-message:
+      prefix: "build(deps)"
+    labels:
+      - "dependencies"
+    ignore:
+      # Blocked are only minor and major changes of the Go version (source:
+      # docs.github.com, "Dependabot options reference", ignore -> update-types).
+      # Patch releases stay allowed, because they bring fixes of the standard
+      # library into the shipped binary; a minor change needs a new go
+      # directive in go.mod and therefore stays manual.
+      - dependency-name: "golang"
+        update-types:
+          - "version-update:semver-minor"
+          - "version-update:semver-major"
+    groups:
+      docker-images:
+        patterns:
+          - "*"
+        exclude-patterns:
+          # The Go image runs as its own pull request: a patch of the standard
+          # library should not hang on the release of another image and should
+          # not wait for it.
+          - "golang"
+        update-types:
+          - "minor"
+          - "patch"
+
+  # Tools for the documentation (requirements-docs.txt).
+  - package-ecosystem: "pip"
+    directory: "/"
+    schedule:
+      interval: "weekly"
+      day: "monday"
+      time: "06:00"
+      timezone: "Europe/Zurich"
+    open-pull-requests-limit: 5
+    commit-message:
+      prefix: "build(deps)"
+    labels:
+      - "dependencies"
+    groups:
+      docs-tools:
+        patterns:
+          - "*"
+        update-types:
+          - "minor"
+          - "patch"
