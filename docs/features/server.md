@@ -11,7 +11,7 @@ EASYPLAN_DATA=./data go run ./cmd/easyplan
 Der Server hört danach auf `EASYPLAN_ADDR` und legt die Datenbank im Datenordner an. Beim Start schreibt er eine Zeile ins Log:
 
 ```text
-time=2026-10-31T19:00:00.000+01:00 level=INFO msg="easyplan started" addr=:8080 data=./data database=data/easyplan.db tz=Europe/Zurich
+time=2026-10-31T19:00:00.000+01:00 level=INFO msg="easyplan started" addr=127.0.0.1:8080 data=./data database=data/easyplan.db tz=Europe/Zurich
 ```
 
 Die Zeitstempel und die Pfade hängen von der Umgebung ab. Der Log geht nach `stderr`, das Logformat ist `log/slog` im Textformat.
@@ -20,28 +20,78 @@ Die Zeitstempel und die Pfade hängen von der Umgebung ab. Der Log geht nach `st
 
 Die Konfiguration kommt aus der Umgebung. Es gibt keine Einstellungsseite und keine Konfigurationsdatei.
 
-| Variable | Standard | Bedeutung |
-|---|---|---|
-| `EASYPLAN_ADDR` | `:8080` | Die Adresse, auf der der Server hört |
-| `EASYPLAN_DATA` | `/data` | Der Ordner mit der SQLite-Datei |
-| `TZ` | `Europe/Zurich` | Die Zeitzone der Anwendung |
+| Variable | Standard ausserhalb von Docker | Wert im Image | Bedeutung |
+|---|---|---|---|
+| `EASYPLAN_ADDR` | `127.0.0.1:8080` | `:8080` | Die Adresse, auf der der Server hört |
+| `EASYPLAN_DATA` | `/data` | `/data` | Der Ordner mit der SQLite-Datei `easyplan.db` |
+| `TZ` | `Europe/Zurich` | `Europe/Zurich` | Die Zeitzone der Anwendung |
 
 Eine leere Variable zählt wie nicht gesetzt, dann greift der Standardwert.
 
-!!! warning "`:8080` hört auf allen Schnittstellen"
-    Der Standardwert `:8080` bindet an alle Schnittstellen des Rechners, nicht nur an `127.0.0.1`. EasyPlan hat keine eigene Authentifizierung, der Zugriff soll ein Reverse Proxy regeln. Wer die App direkt auf einem Rechner startet, sollte sie deshalb nur auf dem Loopback hören lassen:
+!!! note "Der Standardwert ist der Loopback"
+    Ausserhalb von Docker hört der Server auf `127.0.0.1:8080`. EasyPlan hat keine eigene Authentifizierung, der Zugriff soll ein Reverse Proxy regeln. Der Standardwert hält die App deshalb von aussen zu.
+
+    Wer sie breiter hören lassen will, setzt die Variable ausdrücklich:
 
     ```bash
-    EASYPLAN_ADDR=127.0.0.1:8080 EASYPLAN_DATA=./data go run ./cmd/easyplan
+    EASYPLAN_ADDR=:8080 EASYPLAN_DATA=./data go run ./cmd/easyplan
     ```
 
-    `Konzept.md` §9 verlangt dasselbe: Der Dienst lauscht nur auf `127.0.0.1`, Zugriff und TLS regelt ein Reverse Proxy. Das Beispiel für einen Container mit Compose folgt mit Phase 3.
+    Im Container-Image ist `EASYPLAN_ADDR` auf `:8080` gestellt, weil der Server dort auf allen Schnittstellen des Containers hören muss, damit der gemappte Port ankommt. Dort entscheidet der Host, was erreichbar ist. Die Regel ist als [ADR-0008: Bind-Default und Image-Override](../adr/0008-bind-default-und-image-override.md) festgehalten.
+
+`EASYPLAN_DATA` ist auch ausserhalb von Docker `/data`. Für die Entwicklung setzt man deshalb `EASYPLAN_DATA=./data`, sonst braucht das Anlegen des Ordners Root-Rechte.
 
 ## Der Datenordner
 
-Der Ordner aus `EASYPLAN_DATA` wird beim Start angelegt, wenn er noch nicht existiert (Modus 0750). Darin liegt die SQLite-Datei `easyplan.db`.
+Der Ordner aus `EASYPLAN_DATA` wird beim Start angelegt, wenn er noch nicht existiert (Modus 0750). Darin liegt die SQLite-Datei `easyplan.db`, im WAL-Modus daneben die Dateien `easyplan.db-wal` und `easyplan.db-shm`.
 
 Die Migrationen laufen beim Start automatisch. Ist das Schema der Datei neuer als das Binary unterstützt, bricht der Start mit einer klaren Meldung ab. Die Einzelheiten stehen unter [Datenspeicher](datenspeicher.md).
+
+## Die Prüfung der Gesundheit
+
+### Die Adresse `/health`
+
+`GET /health` beantwortet eine einfache Frage: Ist die Anwendung gesund?
+
+| Fall | Status | Antwort |
+|---|---|---|
+| Die Datenbank ist erreichbar | 200 | `ok` |
+| Die Datenbank ist nicht erreichbar | 503 | `unhealthy` |
+
+Die Antwort ist reiner Text (`text/plain; charset=utf-8`), keine Seite der Oberfläche. Die Einzelheiten eines Fehlers stehen im Log, nicht in der Antwort.
+
+Die Prüfung braucht die Datenbank (`store.Ping`) und schreibt nichts. Ein Healthcheck verändert also keinen Zustand.
+
+Die Aussage der Prüfung ist begrenzt: Der Treiber beantwortet sie mit einem `select 1`, also einer Konstante. Die Prüfung liest keine Daten der Datenbank, sie prüft nicht die Datei auf der Platte und sie macht keine Schreibprobe. Eine gelöschte Datei bei offener Verbindung wird darum nicht erkannt.
+
+Schlägt die Prüfung fehl, antwortet der Server mit 503 und schreibt eine Zeile mit dem Level `Warn` ins Log, nicht mit `Error`: Die Container-Runtime fragt alle dreissig Sekunden, ein Fehler käme sonst im Sekundentakt als Fehler im Log.
+
+### Der Unterbefehl `healthcheck`
+
+Das Binary bringt einen eigenen Unterbefehl mit, mit dem eine Container-Runtime oder ein Skript die laufende Anwendung fragen kann:
+
+```bash
+easyplan healthcheck
+```
+
+| Exit-Code | Bedeutung |
+|---|---|
+| `0` | Die Anwendung antwortet mit dem Status 200. |
+| `1` | Die Adresse war ungültig, die Antwort kam nicht, war unvollständig oder trug einen anderen Status. |
+
+Der Unterbefehl nimmt die Adresse aus `EASYPLAN_ADDR` und fragt `http://<Host>:<Port>/health`. Der Host kommt aus der Adresse, ein leerer Host, `0.0.0.0` und `::` bedeuten „hört auf allen Schnittstellen“ und werden zu `127.0.0.1`. Der Port 0 wird abgelehnt: Er bedeutet, dass der Server einen freien Port wählt.
+
+Eine IPv6-Adresse mit Zonen-ID, etwa `[fe80::1%eth0]:8080`, wird für den Check maskiert: Das Prozentzeichen der Zonen-ID wird zu `%25`, weil die sonst ungültige URL vom HTTP-Client abgelehnt würde.
+
+### Die Timeouts der Prüfung
+
+| Timeout | Wert | Ort | Wirkung |
+|---|---|---|---|
+| Datenbank | 2 s | `internal/web/health.go` | So lange darf die Datenbank für den Ping brauchen. |
+| Client | 3 s | `cmd/easyplan/main.go` | So lange wartet der Client auf die ganze Antwort. |
+| Container | 5 s | `Dockerfile` | So lange wartet die Container-Runtime auf den Check. |
+
+Die Kette ist so gebaut, dass der Client schneller abbricht als die Container-Runtime. Der Betrieb mit Docker steht unter [Betrieb](../betrieb.md).
 
 ## Die Zeitzone
 
@@ -62,6 +112,8 @@ Die Zeitzonendatenbank ist im Binary eingebettet (`time/tzdata`). Darum funktion
 | `WriteTimeout` | 60 s | Wie lange der Server die Antwort schreibt |
 | `IdleTimeout` | 120 s | Wie lange eine offene Verbindung zwischen zwei Anfragen leben darf |
 
+Die Backup-Route setzt für ihre Antwort eine eigene Schreibfrist von zehn Minuten. Die allgemeine Frist von 60 Sekunden beginnt, bevor die Kopie der Datenbank gemacht ist, und würde eine grosse Datenbank abschneiden. Die eigene Frist wirkt bei HTTP/1.1; im Betrieb spricht der Reverse Proxy HTTP/1.1 mit der Anwendung.
+
 ## Das Beenden
 
 Ein `SIGINT` (Ctrl+C) oder ein `SIGTERM` beenden den Server sauber:
@@ -72,13 +124,9 @@ Ein `SIGINT` (Ctrl+C) oder ein `SIGTERM` beenden den Server sauber:
 
 Im Log steht am Ende `easyplan stops`.
 
-## Was noch fehlt
-
-- Der Unterbefehl `healthcheck` ist ein Platzhalter. `easyplan healthcheck` bricht mit `subcommand "healthcheck" is not implemented yet` ab.
-- Die Adresse `/health` gibt es noch nicht. Sie antwortet wie jede unbekannte Adresse mit der Seite für 404.
-- Container, Compose-Datei, Backup und Wiederherstellung folgen mit Phase 3.
-
 ## Weiterführend
 
+- [Betrieb](../betrieb.md): Container, Compose-Datei, Healthcheck und Update
+- [Backup](../backup.md): die Datensicherung und die Wiederherstellung
 - [Sicherheit](sicherheit.md): die Regeln, die der Server bei jedem Schreibzugriff anwendet
 - [Architektur](../architecture.md): die Bausteine und ihre Abhängigkeiten

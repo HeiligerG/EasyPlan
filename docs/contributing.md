@@ -10,11 +10,25 @@
 
 ## Prüfungen
 
-Vor jedem Stand:
+Vor jedem Stand die Prüfungen des CI-Workflows:
 
 ```bash
+# Formatierung: der Befehl darf keine Datei nennen
+unformatted="$(gofmt -l .)"
+if [ -n "$unformatted" ]; then
+  echo "These files are not formatted with gofmt:"
+  echo "$unformatted"
+  exit 1
+fi
+
+# Prüfung des Codes
 go vet ./...
-go test ./...
+
+# Build ohne CGO, wie im Container
+CGO_ENABLED=0 go build ./...
+
+# Tests, mit der Suche nach nebenläufigen Fehlern
+go test ./... -race -count=1
 ```
 
 Für die Dokumentation:
@@ -33,15 +47,31 @@ pip install -r requirements-docs.txt
 
 Der Build landet im Ordner `site/`, der nicht im Repository liegt.
 
+Die Suche nach bekannten Schwachstellen lässt sich ebenso lokal laufen. Sie braucht Netzzugriff auf die Schwachstellendatenbank von Go:
+
+```bash
+go install golang.org/x/vuln/cmd/govulncheck@v1.9.0
+"$(go env GOPATH)/bin/govulncheck" ./...
+```
+
+Der Job `docker` des Workflows lässt sich ebenso lokal nachstellen:
+
+```bash
+docker build .
+```
+
+Die Jobs, ihre Berechtigungen und die Update-Regeln von Dependabot stehen unter [CI und Dependabot](ci.md).
+
 ## Teststrategie
 
-Die Suite umfasst über 280 Tests. Sie prüft die Bausteine auf die Weise, die zu ihnen passt:
+Die Suite umfasst über 330 Tests. Sie prüft die Bausteine auf die Weise, die zu ihnen passt:
 
 - `internal/plan` ist rein. Ein Test braucht darum kein Datum aus der Uhr, er übergibt eines. Die Berechnung wird mit festen Eingaben geprüft, die mit dem Konzeptbeispiel übereinstimmen.
 - `internal/store` läuft gegen eine SQLite-Datenbank im Arbeitsspeicher (`store.OpenMemory()`). Die Migrationen, die Pragmas und die Fehlerfälle des Stores stehen dort.
 - `internal/web` prüft die Handler mit `httptest` gegen dieselbe Datenbank im Arbeitsspeicher. Die Uhr ist eine injizierte Funktion, ein Test gibt darum ein festes Datum vor und prüft so den Stichtag, den Monatswechsel und den Sommerzeitwechsel.
 - Die reinen Funktionen der Web-Schicht (`BuildSummary`, `ValidateEntryForm`, `ValidateAccountName`, `AccountRows`, `BuildTimeline`, `ParseAccountFilter`, `ParseAmount`) werden direkt geprüft, ohne Server und ohne Datenbank.
 - Der Start des Servers läuft in einem eigenen Prozess, damit das Laden der Zeitzone, das Setzen von `time.Local` und das saubere Beenden geprüft sind.
+- Die Prüfung der Gesundheit (`/health`) und der Download des Backups (`POST /backup`) werden mit dem echten Handler geprüft, gegen die Datenbank im Arbeitsspeicher.
 
 Gelegentlich wird zusätzlich eine Mutationsprobe gefahren: Ein paar Zeilen des Produktivcodes werden absichtlich verändert, und die Tests müssen rot werden. Sie deckt ab, dass die Tests wirklich greifen, und nicht nur grün sind.
 

@@ -10,7 +10,7 @@ Erfasst werden nur Ausgaben. Es gibt keine Einnahmen, keine Kontostände und kei
 
 ## Status
 
-Phase 2 von 3 ist abgeschlossen: die Berechnung, der Datenspeicher und die Web-Oberfläche stehen und sind getestet. Der Betrieb mit Container, Backup und Installation folgt mit Phase 3.
+Phase 3 von 3 ist abgeschlossen: die Berechnung, der Datenspeicher, die Web-Oberfläche und der Betrieb stehen und sind getestet.
 
 | Bereich | Paket | Stand |
 |---|---|---|
@@ -18,10 +18,7 @@ Phase 2 von 3 ist abgeschlossen: die Berechnung, der Datenspeicher und die Web-O
 | Datenspeicher | `internal/store` | fertig, getestet |
 | Benutzeroberfläche | `internal/web` | fertig, getestet |
 | Server und Konfiguration | `cmd/easyplan` | fertig, getestet |
-| Betrieb, Backup, Installation | – | folgt in Phase 3 |
-
-!!! note "Die App ist benutzbar"
-    `go run ./cmd/easyplan` startet den Server. Es gibt noch keinen Healthcheck, kein Container-Image und keine Anleitung für die Installation, das folgt mit Phase 3.
+| Betrieb, Backup, Installation | `Dockerfile`, `compose.yaml` | fertig, getestet |
 
 ## Leitplanken
 
@@ -31,7 +28,29 @@ Phase 2 von 3 ist abgeschlossen: die Berechnung, der Datenspeicher und die Web-O
 - Keine eigene Authentifizierung, der Zugriff regelt ein Reverse Proxy.
 - Berechnungen entstehen bei Bedarf live, es werden keine abgeleiteten Daten gespeichert.
 
-## Schnellstart
+## Schnellstart mit Docker
+
+```bash
+git clone https://github.com/HeiligerG/EasyPlan.git
+cd EasyPlan
+
+# Der Datenordner gehört dem Nutzer 65532 (nonroot) des Containers.
+mkdir -p ./data
+sudo chown 65532:65532 ./data
+
+docker compose up -d
+curl -fsS http://127.0.0.1:8080/health
+```
+
+```text
+ok
+```
+
+Die Oberfläche ist danach im Browser unter `http://127.0.0.1:8080` erreichbar. Die Adresse hört nur auf dem Loopback, von aussen braucht es einen Reverse Proxy.
+
+Die ganze Anleitung steht unter [Betrieb](betrieb.md).
+
+## Schnellstart für die Entwicklung
 
 Go 1.27.3 oder neuer ist nötig (`go.mod`).
 
@@ -43,27 +62,18 @@ go run ./cmd/easyplan
 Der Server hört danach auf `EASYPLAN_ADDR` und legt die Datenbank `easyplan.db` im Datenordner an. Im Log steht:
 
 ```text
-time=2026-10-31T19:00:00.000+01:00 level=INFO msg="easyplan started" addr=:8080 data=./data database=data/easyplan.db tz=Europe/Zurich
+time=2026-10-31T19:00:00.000+01:00 level=INFO msg="easyplan started" addr=127.0.0.1:8080 data=./data database=data/easyplan.db tz=Europe/Zurich
 ```
 
-Die Oberfläche ist danach im Browser unter `http://127.0.0.1:8080` erreichbar.
+Ausserhalb von Docker hört der Server auf dem Loopback, weil die App keine eigene Authentifizierung hat. Wer sie breiter hören lassen will, setzt `EASYPLAN_ADDR` ausdrücklich, etwa `EASYPLAN_ADDR=:8080`.
 
-!!! warning "Der Standardwert `:8080` hört auf allen Schnittstellen"
-    EasyPlan hat keine eigene Authentifizierung. Für die lokale Entwicklung gehört der Server deshalb nur auf den Loopback:
+## Die Umgebungsvariablen
 
-    ```bash
-    EASYPLAN_ADDR=127.0.0.1:8080 EASYPLAN_DATA=./data go run ./cmd/easyplan
-    ```
-
-    Die Einzelheiten stehen unter [Server und Betrieb](features/server.md).
-
-Die Umgebungsvariablen mit ihren Standardwerten:
-
-| Variable | Standard | Bedeutung |
-|---|---|---|
-| `EASYPLAN_ADDR` | `:8080` | Listen-Adresse |
-| `EASYPLAN_DATA` | `/data` | Ordner der SQLite-Datei |
-| `TZ` | `Europe/Zurich` | Zeitzone |
+| Variable | Standard ausserhalb von Docker | Wert im Image | Bedeutung |
+|---|---|---|---|
+| `EASYPLAN_ADDR` | `127.0.0.1:8080` | `:8080` | Die Adresse, auf der der Server hört |
+| `EASYPLAN_DATA` | `/data` | `/data` | Der Ordner mit der SQLite-Datei |
+| `TZ` | `Europe/Zurich` | `Europe/Zurich` | Die Zeitzone der Anwendung |
 
 ## Weiterführend
 
@@ -74,11 +84,14 @@ Die Umgebungsvariablen mit ihren Standardwerten:
 - [Konten](features/konten.md): anlegen, umbenennen, sortieren, deaktivieren
 - [Timeline](features/timeline.md): die Zahlungen der nächsten zwölf Monate
 - [Formate](features/formate.md): Beträge und Daten in Eingabe und Anzeige
-- [Server und Betrieb](features/server.md): Start, Konfiguration und Beenden
+- [Server und Betrieb](features/server.md): Start, Konfiguration, `/health` und Beenden
 - [Sicherheit](features/sicherheit.md): Origin-Prüfung, Header und Reverse Proxy
 - [Berechnung](features/berechnung.md): Monat, Woche, Tag, Reserve und Rundung
 - [Wiederholungen](features/wiederholungen.md): Einheiten, Intervalle und Monatsende
 - [Datenspeicher](features/datenspeicher.md): Schema, Migrationen und Fehler
+- [Betrieb](betrieb.md): Container, Compose-Datei, Healthcheck und Update
+- [Backup](backup.md): die Datensicherung und die Wiederherstellung
+- [CI und Dependabot](ci.md): die automatischen Prüfungen und Updates
 - [Architekturentscheidungen](adr/index.md): die ADRs mit Kontext und Folgen
 - [Beitragen](contributing.md): Branch, Prüfungen und Sprachregeln
 - [Changelog](changelog.md): was sich geändert hat

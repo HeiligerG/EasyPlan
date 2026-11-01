@@ -83,6 +83,23 @@ file:/pfad/easyplan.db?_pragma=foreign_keys(1)&_pragma=journal_mode(WAL)&_pragma
 
 Die Dateidatenbank bekommt vier Verbindungen, die In-Memory-Datenbank nur eine, weil jede Verbindung dort eine eigene leere Datenbank bekäme.
 
+### Die Dateien im Datenordner
+
+Im WAL-Modus liegen neben der Datenbank noch zwei Dateien:
+
+| Datei | Inhalt |
+|---|---|
+| `easyplan.db` | Die Datenbank selbst |
+| `easyplan.db-wal` | Das Write-Ahead-Log mit den noch nicht übernommenen Änderungen |
+| `easyplan.db-shm` | Die gemeinsame Speicherdatei für das Log |
+
+Die beiden letzten Dateien gehören zum Betrieb und sind kein Zeichen eines Fehlers. Wird die Anwendung sauber beendet, übernimmt SQLite das Log in die Datenbank und entfernt die Dateien.
+
+Wer eine Kopie der Datenbank in die Datei `easyplan.db` legt, muss die beiden Begleitdateien des alten Standes entfernen. Sie würden sonst auf die neue Datei gespielt. Der Ablauf steht unter [Backup](../backup.md).
+
+!!! warning "WAL funktioniert nicht auf Netzwerkdateisystemen"
+    Der WAL-Modus braucht die gemeinsame Speicherdatei `easyplan.db-shm`, die über eine Dateischnittstelle abgebildet wird. Auf NFS und auf anderen Netzwerkdateisystemen ist das nicht zuverlässig. Der Datenordner gehört auf eine lokale Platte.
+
 ## Konten verwalten
 
 Konten lassen sich anlegen, umbenennen, sortieren und deaktivieren. Die Einträge eines deaktivierten Kontos bleiben lesbar, fallen aber aus den Auswertungen heraus. Ein Konto mit Einträgen lässt sich nicht löschen, sondern nur deaktivieren.
@@ -123,11 +140,34 @@ Der Store meldet Fehler über Sentinel-Werte, die mit `errors.Is` geprüft werde
 
 Verletzungen der Datenbank-Constraints, etwa ein Betrag von 0 Franken oder eine unbekannte Einheit, meldet der Store als `invalid entry`.
 
-## Backup
+## Die Kopie der Datenbank
 
-Ein Backup über `VACUUM INTO` und der Download-Button folgen mit Phase 3. Der Store bietet dafür heute noch keinen Zugriff auf die Datenbankverbindung.
+Der Store kann eine Kopie der Datenbank in eine Datei schreiben:
+
+```go
+err := store.VacuumInto(ctx, "/pfad/der/kopie.db")
+```
+
+Die Kopie entsteht mit dem Statement `VACUUM INTO ?`. Sie hat drei Eigenschaften:
+
+- Sie hält den Stand des Moments des Aufrufs, auch wenn die Datenbank währenddessen geschrieben wird.
+- Sie braucht das Schreibrecht der Datenbank nicht. Ein Backup stört die Besucher der Anwendung also nicht.
+- Die Zieldatei darf noch nicht existieren. SQLite weist das Überschreiben einer vorhandenen Datei zurück, ein Backup zerstört darum nie eine Datei, die schon da ist.
+
+Der Pfad darf nicht aus der Eingabe einer Besucherin stammen: Die Kopie enthält die ganze Datenbank. Der Download im Betrieb steht unter [Backup](../backup.md).
+
+## Die Erreichbarkeit der Datenbank
+
+Der Store kann prüfen, ob die Datenbank erreichbar ist:
+
+```go
+err := store.Ping(ctx)
+```
+
+Die Prüfung nimmt eine Verbindung aus dem Pool und lässt den Treiber testen. Der Treiber antwortet mit einem `select 1`, also einer Konstante: Die Prüfung liest keine Daten der Datenbank, sie prüft nicht die Datei auf der Platte und sie schreibt nichts. Sie verändert also keinen Zustand. Die Prüfung der Gesundheit unter `/health` braucht nichts weiter, siehe [Server und Betrieb](server.md).
 
 ## Weiterführend
 
 - [ADR-0001: SQLite ohne CGO](../adr/0001-sqlite-ohne-cgo.md)
+- [Backup](../backup.md): der Download der Kopie und die Wiederherstellung
 - [Architektur](../architecture.md): Bausteine und Datenfluss
