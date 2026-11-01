@@ -6,6 +6,8 @@ Diese Datei ist die einzige Quelle für den Changelog. Eine zweite Kopie im Repo
 
 ## [Unreleased]
 
+## [1.0.0] – 2026-11-01
+
 ### Added
 
 - Healthcheck unter `GET /health`: Die Antwort ist `ok` mit dem Status 200, wenn die Datenbank erreichbar ist, und `unhealthy` mit dem Status 503, wenn sie es nicht ist.
