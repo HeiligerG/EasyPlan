@@ -4,12 +4,14 @@ import (
 	"bufio"
 	"bytes"
 	"context"
+	"errors"
 	"fmt"
 	"io"
 	"net"
 	"net/http"
 	"os"
 	"os/exec"
+	"path/filepath"
 	"strings"
 	"testing"
 	"time"
@@ -20,6 +22,20 @@ import (
 const (
 	helperAddress = "EASYPLAN_TEST_HELPER_ADDRESS"
 	helperData    = "EASYPLAN_TEST_HELPER_DATA"
+)
+
+// The values the specification names for the backup.
+//
+// The tests use the literals and not the constants of the production code,
+// so a change of a constant is visible in the tests.
+const (
+	// backupContentType is the media type of the copy of the database.
+	backupContentType = "application/vnd.sqlite3"
+	// backupDirPrefix is the prefix of the name of the temporary directory
+	// of a backup.
+	backupDirPrefix = "easyplan-backup-"
+	// sqliteHeader is the magic number at the beginning of every SQLite file.
+	sqliteHeader = "SQLite format 3\x00"
 )
 
 // TestMain runs the tests of the package.
@@ -141,6 +157,21 @@ func waitForServer(t *testing.T, addr string) {
 	}
 }
 
+// stopServer stops the server of the process and waits for its end.
+//
+// The end of the input of the process stops the server. The exit code 0 means
+// that the server stopped without an error.
+func stopServer(t *testing.T, cmd *exec.Cmd, stdin io.WriteCloser, output *bytes.Buffer) {
+	t.Helper()
+
+	if err := stdin.Close(); err != nil {
+		t.Errorf("cannot close the input of the server: %v", err)
+	}
+	if err := cmd.Wait(); err != nil {
+		t.Errorf("the server failed with %v, want no error:\n%s", err, output.String())
+	}
+}
+
 // TestServe_starts_and_stops_the_server checks that the server starts, that
 // it answers on the address of the configuration and that it stops without an
 // error when the context is done.
@@ -152,15 +183,7 @@ func TestServe_starts_and_stops_the_server(t *testing.T) {
 
 	waitForServer(t, addr)
 
-	// The end of the input of the process stops the server.
-	if err := stdin.Close(); err != nil {
-		t.Errorf("cannot close the input of the server: %v", err)
-	}
-
-	// The exit code 0 means that the server stopped without an error.
-	if err := cmd.Wait(); err != nil {
-		t.Errorf("the server failed with %v, want no error:\n%s", err, output.String())
-	}
+	stopServer(t, cmd, stdin, output)
 }
 
 // TestServe_reports_an_occupied_port checks that the server does not start
@@ -223,4 +246,123 @@ func readDirNames(dir string) ([]string, error) {
 		names = append(names, item.Name())
 	}
 	return names, nil
+}
+
+// TestServe_removes_the_leftovers_of_a_backup checks that the server removes
+// the temporary directories of the backups that a killed backup left behind.
+//
+// A backup that is killed hard cannot clean up after itself, so the next
+// start has to remove the leftovers.
+func TestServe_removes_the_leftovers_of_a_backup(t *testing.T) {
+	addr := freeAddress(t)
+	data := t.TempDir()
+	leftover := filepath.Join(data, backupDirPrefix+"leftover")
+	if err := os.Mkdir(leftover, 0o700); err != nil {
+		t.Fatalf("cannot create the leftover: %v", err)
+	}
+
+	cmd, stdin, output := startServer(t, addr, data)
+
+	waitForServer(t, addr)
+
+	if _, err := os.Stat(leftover); !errors.Is(err, os.ErrNotExist) {
+		t.Errorf("the leftover %q is still there", leftover)
+	}
+
+	stopServer(t, cmd, stdin, output)
+}
+
+// TestServe_answers_the_health_check checks that the server of the program
+// answers the check of the health of the application.
+//
+// The server runs in a process of its own, so the test covers the wiring of
+// the route and not only the handler.
+func TestServe_answers_the_health_check(t *testing.T) {
+	addr := freeAddress(t)
+	data := t.TempDir()
+
+	cmd, stdin, output := startServer(t, addr, data)
+
+	waitForServer(t, addr)
+
+	client := &http.Client{Timeout: 10 * time.Second}
+	resp, err := client.Get("http://" + addr + "/health")
+	if err != nil {
+		t.Fatalf("the request failed: %v", err)
+	}
+	defer resp.Body.Close()
+
+	body, err := io.ReadAll(resp.Body)
+	if err != nil {
+		t.Fatalf("cannot read the answer: %v", err)
+	}
+
+	if resp.StatusCode != http.StatusOK {
+		t.Fatalf("the status is %d, want %d", resp.StatusCode, http.StatusOK)
+	}
+	if string(body) != "ok" {
+		t.Errorf("the body is %q, want %q", body, "ok")
+	}
+
+	stopServer(t, cmd, stdin, output)
+}
+
+// TestServe_serves_the_backup_from_the_data_directory checks that the backup
+// of the program works and that it leaves nothing behind.
+//
+// The server of the program has to know the data directory, so the copy of
+// the database can be written into it. The test proves the wiring of the
+// directory: a server without a directory for the copy answers with 503.
+func TestServe_serves_the_backup_from_the_data_directory(t *testing.T) {
+	addr := freeAddress(t)
+	data := t.TempDir()
+
+	cmd, stdin, output := startServer(t, addr, data)
+
+	waitForServer(t, addr)
+
+	origin := "http://" + addr
+	req, err := http.NewRequest(http.MethodPost, origin+"/backup", nil)
+	if err != nil {
+		t.Fatalf("http.NewRequest() failed: %v", err)
+	}
+	// The origin has to match the host of the request, the server refuses a
+	// writing request of another origin.
+	req.Header.Set("Origin", origin)
+
+	client := &http.Client{Timeout: 30 * time.Second}
+	resp, err := client.Do(req)
+	if err != nil {
+		t.Fatalf("the backup failed: %v", err)
+	}
+	defer resp.Body.Close()
+
+	body, err := io.ReadAll(resp.Body)
+	if err != nil {
+		t.Fatalf("cannot read the answer of the backup: %v", err)
+	}
+
+	if resp.StatusCode != http.StatusOK {
+		t.Fatalf("the status is %d, want %d", resp.StatusCode, http.StatusOK)
+	}
+	if contentType := resp.Header.Get("Content-Type"); contentType != backupContentType {
+		t.Errorf("the content type is %q, want %q", contentType, backupContentType)
+	}
+	if !bytes.HasPrefix(body, []byte(sqliteHeader)) {
+		t.Errorf("the answer does not begin with the magic number of SQLite: %q", body[:min(len(body), 16)])
+	}
+
+	// The temporary directory of the backup has to be gone again, only the
+	// database of the application may stay.
+	entries, err := readDirNames(data)
+	if err != nil {
+		t.Fatalf("cannot read the data directory: %v", err)
+	}
+	for _, name := range entries {
+		if strings.HasPrefix(name, backupDirPrefix) {
+			t.Errorf("the data directory holds the leftover %q of the backup", name)
+		}
+	}
+
+	stopServer(t, cmd, stdin, output)
 }

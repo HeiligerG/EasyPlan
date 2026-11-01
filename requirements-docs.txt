@@ -1,7 +1,7 @@
-# Werkzeuge, um die Dokumentation zu bauen.
+# Tools to build the documentation.
 #
-# Installation in eine eigene Umgebung, damit die Werkzeuge das Projekt nicht
-# mit dem Go-Modul teilen:
+# Install them into a separate environment, so the tools do not share the
+# environment of the Go module:
 #
 #   python3 -m venv .venv-docs
 #   . .venv-docs/bin/activate
@@ -10,5 +10,5 @@
 #
 mkdocs>=1.6.0,<2.0.0
 mkdocs-material>=9.5.0,<10.0.0
-# Wird direkt in mkdocs.yml benutzt (pymdownx.superfences fuer Mermaid).
+# Used directly in mkdocs.yml (pymdownx.superfences for Mermaid).
 pymdown-extensions>=10.0.0,<11.0.0

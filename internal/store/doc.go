@@ -37,4 +37,12 @@
 // A Store is safe for concurrent use, database/sql takes care of the
 // connections. Every method reads its rows completely before it returns, so a
 // method never holds a connection while it runs another query.
+//
+// # Backup
+//
+// VacuumInto writes a copy of the database with the statement VACUUM INTO.
+// The copy holds the data of the moment of the call and it is made without
+// the write lock of the database, so a backup does not disturb the visitors
+// of the application. The file of the copy must not exist yet, SQLite
+// refuses to overwrite a file.
 package store

@@ -52,6 +52,23 @@ Die Zahlungen und Beträge sind Text und keine Markup-Elemente, darum wird der A
 - Der Body eines Formulars ist auf 64 KiB begrenzt. Ein grösserer Body wird mit dem Status 413 abgelehnt.
 - Die Eingaben werden serverseitig geprüft, bevor etwas gespeichert wird. Die Prüfung der Formulare ist eine reine Funktion und steht unter [Einträge](eintraege.md) und [Konten](konten.md).
 
+## Das Backup als Datenabfluss
+
+Ein Backup enthält die ganze Datenbank: alle Konten, alle Einträge, alle Beträge und alle Notizen. Es ist damit der einzige Ort, an dem die Anwendung Daten ausliefert, und er ist besonders zu schützen.
+
+Die Adresse `POST /backup` ist darum die einzige schreibende Adresse, die Daten ausliefert:
+
+- Die Adresse antwortet nur auf `POST`. Ein `GET /backup` kennt keine Route und liefert die Seite für 404. Ein `GET` muss nach RFC 9110 §9.2.1 sicher sein, ein Backup ist es nicht: Es kopiert die ganze Datenbank und erzeugt Last.
+- Weil `POST` eine schreibende Methode ist, greift die Prüfung der Herkunft auch hier. Ein Request ohne `Origin` oder mit fremdem `Origin` wird mit dem Status 403 abgelehnt. Das ist der zusätzliche Schutz für die schreibenden Methoden: Eine fremde Seite kann das Backup nicht anstossen.
+- Der Download trägt `Cache-Control: no-store`, damit keine Kopie in einem Zwischencache liegen bleibt.
+- Der Knopf steht im Seitenfuss und heisst „Backup herunterladen“. Die Datei bekommt einen Namen mit der Zeit des Backups.
+
+Damit kann kein Link, kein Prefetch und kein Suchroboter ein Backup auslösen. Es braucht die Oberfläche selbst und eine passende Herkunft.
+
+Dass eine fremde Seite die Antwort nicht lesen kann, regelt die Same-Origin-Policy des Browsers, unabhängig von der Methode. Die Prüfung der Herkunft verhindert zusätzlich, dass das Backup überhaupt anstossen wird.
+
+Die Regel ist als [ADR-0007: Backup als POST](../adr/0007-backup-als-post.md) festgehalten. Der Ablauf steht unter [Backup](../backup.md).
+
 ## Die Fehlerseiten
 
 Eine Fehlerseite verrät nichts über den Grund des Fehlers. Die Details gehen in das Log des Servers, die Seite bekommt einen allgemeinen Text wie „Die Seite konnte nicht geladen werden.“
@@ -62,6 +79,8 @@ Jede Adresse, die keine Route kennt, führt zur Seite für 404. Das gilt auch, w
 
 Der Grund ist der Catch-all am Ende der Route-Liste. Er fängt jede Adresse ab, die keine Route bedient, und liefert dieselbe Seite. Der Besucher sieht damit nicht, welche Adressen und Methoden es gibt.
 
+Die Prüfung der Herkunft läuft vor der Verteilung auf die Routen. Ein `POST /health` ohne passenden `Origin` wird deshalb mit 403 abgelehnt, mit passendem `Origin` mit 404, weil es die Adresse nur für `GET` gibt.
+
 ## Die statischen Dateien
 
 CSS und HTMX liegen als eingebettete Dateien im Binary, es gibt keine Dateien neben dem Programm und keinen Build-Schritt. Die Dateien bekommen einen `ETag` aus dem SHA-256 des Inhalts und einen `Cache-Control`-Header mit einer Stunde. Der Browser lädt eine Datei nach einem Update des Binaries neu.
@@ -69,5 +88,7 @@ CSS und HTMX liegen als eingebettete Dateien im Binary, es gibt keine Dateien ne
 ## Weiterführend
 
 - [Server und Betrieb](server.md): Start, Konfiguration und der Hinweis zur Listen-Adresse
+- [Backup](../backup.md): der Download der Datenbank und die Wiederherstellung
 - [ADR-0005: Origin-Prüfung statt CSRF-Token](../adr/0005-origin-pruefung-statt-csrf-token.md)
+- [ADR-0007: Backup als POST](../adr/0007-backup-als-post.md)
 - [Formate](formate.md): die Grenzen der Eingaben

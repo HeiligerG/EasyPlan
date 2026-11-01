@@ -10,6 +10,11 @@ Ein ADR hält eine Entscheidung fest, die das Projekt prägt: Kontext, Entscheid
 | [ADR-0004](0004-naechste-zahlung-pro-konto.md) | Nächste Zahlung pro Konto | accepted | 2026-10-30 |
 | [ADR-0005](0005-origin-pruefung-statt-csrf-token.md) | Origin-Prüfung statt CSRF-Token | accepted | 2026-10-31 |
 | [ADR-0006](0006-timeline-zeitraum-und-monatsgruppen.md) | Zeitraum und Monatsgruppen der Timeline | accepted | 2026-10-31 |
+| [ADR-0007](0007-backup-als-post.md) | Backup als POST mit temporärer Datei im Datenordner | accepted | 2026-10-31 |
+| [ADR-0008](0008-bind-default-und-image-override.md) | Bind-Default `127.0.0.1:8080` und Image-Override `:8080` | accepted | 2026-10-31 |
+| [ADR-0009](0009-dependabot-update-policy-go.md) | Update-Policy für Go (Patch automatisch, Minor und Major von Hand) | accepted | 2026-10-31 |
+
+ADR-0007 wurde am 2026-11-01 nach dem Review von Phase 3 in der Begründung korrigiert. Die Entscheidung selbst ist unverändert, das ADR bleibt als Dokument stehen.
 
 ## Vorlage
 
@@ -23,6 +28,8 @@ Datum: <yyyy-mm-dd>
 ## Entscheidung
 ## Konsequenzen
 ```
+
+Die Zeile `Überarbeitet: <yyyy-mm-dd>, <was geändert wurde>` ist optional. Sie steht im Kopf, wenn eine bestehende Entscheidung nach einem Review oder einem Plan neu begründet oder ergänzt wurde. Der Status bleibt dabei `accepted`.
 
 ## Status
 

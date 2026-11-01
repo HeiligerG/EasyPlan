@@ -136,6 +136,20 @@ a:focus-visible {
   font-size: 0.875rem;
 }
 
+/*
+ * The form of the backup sits in the footer, so it must not carry the margin
+ * of the other forms. The button keeps the size of the other buttons, so it
+ * is as comfortable to touch as they are.
+ */
+
+.site-footer__backup {
+  margin: 0;
+}
+
+.site-footer__backup button {
+  font-size: 1rem;
+}
+
 .hint {
   color: var(--color-muted);
 }
@@ -292,6 +306,12 @@ button,
 .button {
   display: inline-block;
   padding: 0.5rem 0.875rem;
+  /*
+   * The buttons are touched with a finger, so they are at least 44 pixels
+   * high. The rule counts the border and the padding, so the button keeps
+   * its look and only gets a little taller.
+   */
+  min-height: 44px;
   border: 1px solid var(--color-accent);
   border-radius: var(--radius);
   background: var(--color-accent);

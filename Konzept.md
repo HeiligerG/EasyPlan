@@ -121,7 +121,7 @@ Mobile-first, ein CSS-File, HTMX für Formulare und Teil-Updates. Jede Seite fun
 2. **Einträge:** Liste (gruppiert nach Konto) mit Anlegen, Bearbeiten, Löschen. Bearbeiten ist ein Klick auf die Zeile.
 3. **Timeline:** die nächsten 12 Monate, nach Monat gruppiert, optional nach Konto filterbar.
 4. **Konten:** anlegen, umbenennen, sortieren, deaktivieren.
-5. **Backup:** Button „Datenbank herunterladen“ (siehe §8). Weitere Einstellungen gibt es nicht.
+5. **Backup:** kein eigener Seitenpunkt. Im Seitenfuss jeder Seite steht der Knopf „Backup herunterladen“. Er sendet `POST /backup` und liefert die Kopie der Datenbank als Download (siehe §8). Weitere Einstellungen gibt es nicht.
 
 ## 7. Code-Struktur
 
@@ -159,22 +159,26 @@ Für Store und Handler genügt je ein Smoke-Test mit SQLite im Speicher.
 
 **Konfiguration (Umgebungsvariablen):**
 
-| Variable | Standard | Bedeutung |
-|---|---|---|
-| `EASYPLAN_ADDR` | `:8080` | Listen-Adresse |
-| `EASYPLAN_DATA` | `/data` | Ordner der SQLite-Datei |
-| `TZ` | `Europe/Zurich` | Zeitzone |
+| Variable | Standard ausserhalb von Docker | Wert im Image | Bedeutung |
+|---|---|---|---|
+| `EASYPLAN_ADDR` | `127.0.0.1:8080` | `:8080` | Die Adresse, auf der der Server hört |
+| `EASYPLAN_DATA` | `/data` | `/data` | Ordner der SQLite-Datei |
+| `TZ` | `Europe/Zurich` | `Europe/Zurich` | Zeitzone |
+
+Ausserhalb des Containers hört der Server nur auf dem Loopback, weil die App keine eigene Anmeldung hat. Im Image hört er auf allen Schnittstellen, damit der gemappte Port ankommt; dort beschränkt die Portbindung der Compose-Datei den Zugriff auf den Loopback des Hosts.
 
 Die Währung ist fest CHF.
 
-**Docker:** Multi-Stage-Dockerfile (aktuelle stabile Go-Version → `gcr.io/distroless/static`), Nutzer `nonroot`, Healthcheck über `easyplan healthcheck` gegen `/health`. Persistiert wird nur `/data`.
+**Docker:** Multi-Stage-Dockerfile (`golang:1.27.3-bookworm` → `gcr.io/distroless/static-debian12:nonroot`), Nutzer `nonroot` (UID 65532), Healthcheck über `easyplan healthcheck` gegen `/health`. Persistiert wird nur `/data`.
 
 ```yaml
 services:
   easyplan:
+    image: easyplan:local
     build: .
     restart: unless-stopped
     read_only: true
+    stop_grace_period: 15s
     ports:
       - "127.0.0.1:8080:8080"
     volumes:
@@ -185,13 +189,20 @@ services:
 
 **Entwicklung:** `go run ./cmd/easyplan` (Daten in `./data`). Kein Hot-Reload-Tool, kein Dev-Compose.
 
-**Backup:** Der Button ruft `VACUUM INTO` auf eine temporäre Datei auf und liefert sie als Download. **Restore** läuft von Hand: Container stoppen, Datei als `/data/easyplan.db` ersetzen, Container starten. Das steht in der README. Für automatische Backups reicht ein Cron-Job mit `sqlite3 easyplan.db ".backup …"`.
+**Healthcheck:** `GET /health` antwortet mit dem Status 200 und dem Text `ok`, wenn die Datenbank erreichbar ist, sonst mit dem Status 503 und dem Text `unhealthy`. Das Image steuert den Check mit `HEALTHCHECK --interval=30s --timeout=5s --start-period=10s --retries=3`. Drei Timeouts stecken in der Prüfung: Die Datenbank hat 2 s, der Client 3 s, die Container-Runtime 5 s.
+
+**Backup:** Der Knopf im Seitenfuss jeder Seite sendet `POST /backup` und liefert die Kopie der Datenbank als Download. Der Server schreibt die Kopie mit `VACUUM INTO` in einen temporären Ordner im Datenordner, weil das Root-Dateisystem des Containers unbeschreibbar ist (`read_only: true`): Der Ordner hat die Rechte 0700, die Kopie die Rechte 0600. Im normalen Weg wird der Ordner nach dem Download gelöscht; bleibt er nach einem harten Abbruch liegen, entfernt die Anwendung ihn beim nächsten Start.
+
+**Restore** läuft von Hand: Container stoppen, `easyplan.db-wal` und `easyplan.db-shm` des alten Standes entfernen, die Backup-Datei mit `sudo install -o 65532 -g 65532 -m 600 …` als `/data/easyplan.db` einsetzen, Container starten. Das steht in der README.
+
+**Automatische Backups:** Für regelmässige Kopien reicht ein Cron-Job mit `sqlite3 easyplan.db ".backup …"`. Er braucht Schreibzugriff auf den Datenordner, denn die gemeinsame Speicherdatei `easyplan.db-shm` gehört dem Nutzer 65532 des Containers. Wer keinen Zugriff auf den Ordner braucht, holt die Kopie über die Adresse: `curl -X POST -H "Origin: http://127.0.0.1:8080" http://127.0.0.1:8080/backup -o easyplan-$(date +%Y%m%d-%H%M%S).db`. Der `Origin`-Header muss zum `Host` der Anfrage passen, sonst antwortet der Server mit 403.
 
 ## 9. Sicherheit
 
-- Keine eingebaute Authentifizierung. Der Dienst lauscht nur auf `127.0.0.1`. Zugriff und TLS regelt ein Reverse Proxy (Caddy, Traefik, Authentik, …). Die README enthält ein Caddy-Beispiel mit Basic Auth.
-- Container als `nonroot`, Root-Dateisystem schreibgeschützt, Schreibzugriff nur auf `/data`.
+- Keine eingebaute Authentifizierung. Ausserhalb des Containers lauscht der Dienst nur auf `127.0.0.1`, im Image auf allen Schnittstellen des Containers, dort beschränkt die Portbindung der Compose-Datei den Zugriff auf den Loopback des Hosts. Zugriff und TLS regelt ein Reverse Proxy (Caddy, Traefik, Authentik, …). Die README enthält ein Caddy-Beispiel mit Basic Auth.
+- Container als `nonroot` (UID 65532), Root-Dateisystem schreibgeschützt, Schreibzugriff nur auf `/data`, `no-new-privileges` und `cap_drop: ALL`.
 - CSRF-Schutz ohne Token: Der Server prüft bei jedem schreibenden Request (POST/PUT/DELETE), dass der `Origin`-Header zum `Host` passt (HTMX sendet ihn mit). Eingaben werden serverseitig validiert (Betrag > 0, gültiges Datum, bekanntes `unit`).
+- Der Reverse Proxy muss den `Host`-Header weitergeben: Der Vergleich ist immer gegen den `Host` der Anfrage, `X-Forwarded-Host` wird nicht ausgewertet. Caddy und Traefik setzen `Host` von Haus aus weiter, nginx braucht `proxy_set_header Host $host;`. Ohne erhaltenen `Host` sind alle Schreibzugriffe mit 403 abgelehnt, und die App sieht nur noch lesen.
 
 ## 10. Nicht in V1
 
@@ -214,7 +225,7 @@ Ein Feature-Branch pro Phase, Review, dann Merge per GitHub-Pull-Request.
 |---|---|---|
 | **1 – Kern** | Berechnung steht und ist getestet | Repo-Gerüst (`go.mod`, Ordner, `.gitignore`), `internal/plan` mit Tests, Migration und `internal/store` |
 | **2 – UI** | App ist benutzbar | Layout und CSS, Dashboard, Einträge, Konten, Timeline |
-| **3 – Betrieb** | Läuft im Container | Dockerfile, Compose, `/health`, Backup-Button, README (Installation, Update, Restore, Caddy-Beispiel), GitHub-Actions-Workflow (build, vet, test), Release `v1.0.0` |
+| **3 – Betrieb** | Läuft im Container | Dockerfile, Compose, `/health` mit Docker-HEALTHCHECK, Backup-Knopf im Seitenfuss (`POST /backup`), README (Installation, Update, Backup, Restore, Caddy- und nginx-Beispiel), GitHub-Actions-Workflow mit den Jobs `go`, `vulncheck`, `docs` und `docker`, Dependabot-Konfiguration, Release `v1.0.0` (noch offen) |
 | **4 – Optional** | nach Bedarf | Punkte aus §11 |
 
 Nach Phase 2 lässt sich die App bereits im Alltag testen. Phase 3 ist nur nötig, sobald sie dauerhaft laufen soll.

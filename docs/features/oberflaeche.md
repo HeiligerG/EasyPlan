@@ -15,6 +15,22 @@ Die Seiten im Detail stehen unter [Dashboard](dashboard.md), [Einträge](eintrae
 
 Jede Seite hat denselben Aufbau: ein Kopf mit der Marke und der Navigation, der Hauptbereich mit der Seite und ein Fuss. Der Eintrag der aktuellen Seite in der Navigation ist markiert.
 
+## Der Knopf im Fuss
+
+Der Fuss jeder Seite trägt den Knopf „Backup herunterladen“. Er lädt die SQLite-Datei als Datei herunter.
+
+```html
+<form class="site-footer__backup" method="post" action="/backup">
+<button type="submit" class="secondary">Backup herunterladen</button>
+</form>
+```
+
+Der Knopf ist ein normales Formular ohne JavaScript, wie alle anderen Formulare der Anwendung. Er steht im Fuss und nicht auf einer eigenen Seite, weil ein Backup eine Aktion ist und keine Seite mit Inhalt.
+
+Der Knopf erscheint nur, wenn der Server den Backup einrichten kann. Ohne einen Ordner für die temporäre Kopie gibt es den Knopf nicht, und die Adresse antwortet mit dem Status 503.
+
+Die Adresse antwortet nur auf `POST`: Ein `GET` muss nach RFC 9110 §9.2.1 sicher sein, ein Backup ist es nicht, weil es die ganze Datenbank kopiert und Last erzeugt. Die Einzelheiten stehen unter [Backup](../backup.md) und [Sicherheit](sicherheit.md).
+
 ## HTMX
 
 HTMX 2.0.11 liegt als einzelne Datei im Binary und wird ausgeliefert, es gibt keine CDN-Abhängigkeit zur Laufzeit:
@@ -43,6 +59,7 @@ Die Oberfläche hat genau ein CSS-File, `internal/web/static/style.css`. Es ist 
 - Kein Dark Mode, keine Charts, kein Framework, keine Web-Fonts.
 - Die Farben stehen als CSS-Variablen im Kopf der Datei.
 - Die Tabellen des Dashboards und der Einträge bekommen einen Mindestbreite, damit sie auf kleinen Schirmen waagrecht scrollen statt die Spalten zu quetschen.
+- Jeder Knopf und jeder Knopf als Link ist mindestens 44 Pixel hoch (`min-height: 44px`). Die Fläche zum Tippen ist damit auf jedem Bildschirm gross genug. Die Regel zählt den Rand und den Innenabstand mit, der Knopf sieht darum gleich aus und wird nur etwas höher.
 
 ## Ohne JavaScript
 
@@ -60,4 +77,5 @@ Die Oberfläche ist auf Deutsch (Schweiz). Datumsangaben stehen als `TT.MM.JJJJ`
 ## Weiterführend
 
 - [Sicherheit](sicherheit.md): die Header und die Prüfung der Herkunft
+- [Backup](../backup.md): der Download der Datenbank aus dem Seitenfuss
 - [Architektur](../architecture.md): der Aufbau des Pakets `internal/web`

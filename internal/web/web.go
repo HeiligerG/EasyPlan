@@ -35,6 +35,12 @@ type Store interface {
 	CreateEntry(ctx context.Context, entry plan.Entry) (int64, error)
 	UpdateEntry(ctx context.Context, entry plan.Entry) error
 	DeleteEntry(ctx context.Context, id int64) error
+	// Ping checks that the database can be reached. The health check of the
+	// application uses it.
+	Ping(ctx context.Context) error
+	// VacuumInto writes a copy of the database into the file path. The
+	// backup of the interface uses it.
+	VacuumInto(ctx context.Context, path string) error
 }
 
 // The store of the application implements the interface of the web layer.
@@ -55,6 +61,14 @@ type Options struct {
 	// Logger receives the messages of the server. It defaults to
 	// slog.Default().
 	Logger *slog.Logger
+	// BackupDir is the directory in which the temporary copy of the database
+	// is written before it is sent as a download. It defaults to the empty
+	// string, then the backup is not available.
+	//
+	// The directory has to be writable. In the container it is the data
+	// directory, so the backup works even when the file system of the
+	// container is read-only.
+	BackupDir string
 }
 
 // server holds the state that the handlers share.
@@ -65,6 +79,7 @@ type server struct {
 	logger    *slog.Logger
 	templates map[string]*template.Template
 	static    http.Handler
+	backupDir string
 }
 
 // New returns the HTTP handler of the application.
@@ -77,10 +92,11 @@ func New(opts Options) (http.Handler, error) {
 	}
 
 	s := &server{
-		store:    opts.Store,
-		now:      opts.Now,
-		location: opts.Location,
-		logger:   opts.Logger,
+		store:     opts.Store,
+		now:       opts.Now,
+		location:  opts.Location,
+		logger:    opts.Logger,
+		backupDir: opts.BackupDir,
 	}
 	if s.now == nil {
 		s.now = time.Now
@@ -110,12 +126,16 @@ func New(opts Options) (http.Handler, error) {
 // routes registers the routes of the application.
 //
 // The patterns carry the method, so a page only answers the requests of its
-// own method. Every page of the navigation has its own route, the pages are
-// filled in step by step. The entries have their own routes for the list, the
-// form of an entry and the deletion. The accounts have their own routes for
-// the list, the form of a rename and the actions on an account. The catch-all
-// at the end answers every other address with the page for 404.
+// own method. The check of the health of the application has its own route,
+// it is not a page of the interface. Every page of the navigation has its
+// own route, the pages are filled in step by step. The entries have their
+// own routes for the list, the form of an entry and the deletion. The
+// accounts have their own routes for the list, the form of a rename and the
+// actions on an account. The backup has its own route, it answers only the
+// requests that write. The catch-all at the end answers every other address
+// with the page for 404.
 func (s *server) routes(mux *http.ServeMux) {
+	mux.HandleFunc("GET /health", s.healthPage)
 	mux.HandleFunc("GET /{$}", s.dashboardPage)
 	mux.HandleFunc("GET /entries", s.entriesPage)
 	mux.HandleFunc("GET /entries/new", s.entryNewPage)
@@ -133,6 +153,7 @@ func (s *server) routes(mux *http.ServeMux) {
 	mux.HandleFunc("POST /accounts/{id}/down", s.accountMoveDown)
 	mux.HandleFunc("POST /accounts/{id}/activate", s.accountActivate)
 	mux.HandleFunc("POST /accounts/{id}/deactivate", s.accountDeactivate)
+	mux.HandleFunc("POST /backup", s.backupDownload)
 	mux.Handle("GET /static/", s.static)
 	// Every other path is unknown and gets the page for 404.
 	mux.HandleFunc("/", s.notFoundPage)
@@ -163,6 +184,11 @@ type PageData struct {
 	Error string
 	// Data holds the data of the page itself.
 	Data any
+	// BackupAvailable reports whether the button of the backup is shown. The
+	// backup needs a directory for the temporary copy, without one it is not
+	// possible. The rendering sets the flag, so every page shows the button
+	// when the backup works.
+	BackupAvailable bool
 }
 
 // render writes a page to the response.
@@ -178,6 +204,10 @@ func (s *server) render(w http.ResponseWriter, status int, page string, data Pag
 		http.Error(w, "internal server error", http.StatusInternalServerError)
 		return
 	}
+
+	// The button of the backup belongs to the layout, so the flag is set
+	// here and not by every handler.
+	data.BackupAvailable = s.backupDir != ""
 
 	var buffer bytes.Buffer
 	if err := tmpl.ExecuteTemplate(&buffer, layoutTemplate, data); err != nil {

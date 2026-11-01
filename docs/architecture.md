@@ -2,10 +2,10 @@
 
 EasyPlan besteht aus vier Bausteinen. Jeder Baustein hat eine klare Aufgabe, und die Abhängigkeiten laufen in eine Richtung: `internal/web` nutzt `internal/store` und `internal/plan`, `internal/store` nutzt `internal/plan`, `internal/plan` kennt kein anderes Paket.
 
-| Baustein | Aufgabe | Stand in Phase 2 |
+| Baustein | Aufgabe | Stand in Phase 3 |
 |---|---|---|
-| `cmd/easyplan` | Start, Konfiguration aus der Umgebung, HTTP-Server | fertig |
-| `internal/store` | SQLite, Migrationen, Abfragen | fertig |
+| `cmd/easyplan` | Start, Konfiguration aus der Umgebung, HTTP-Server, Unterbefehl `healthcheck` | fertig |
+| `internal/store` | SQLite, Migrationen, Abfragen, Kopie der Datenbank | fertig |
 | `internal/plan` | reine Berechnung, ohne I/O | fertig |
 | `internal/web` | HTTP-Handler, Templates, statische Dateien | fertig |
 
@@ -82,6 +82,8 @@ Das Paket `internal/web` erzeugt den Handler der Anwendung. Seine Dateien:
 | `entryform.go` | das Formular eines Eintrags und seine Prüfung |
 | `accounts.go` | die Seite der Konten und ihre Aktionen |
 | `timeline.go` | die Seite der Timeline und ihre Monatsgruppen |
+| `health.go` | die Prüfung der Gesundheit unter `/health` |
+| `backup.go` | der Download der Kopie der Datenbank |
 
 ### Ein Muster für alle Seiten
 
@@ -115,10 +117,30 @@ Die Handler lesen den Store und rendern die Seite. Die Logik, die sich ohne Serv
 
 Sie lesen nichts ausser ihren Argumenten und rufen weder die Datenbank noch die Uhr. Ein Test kann sie deshalb ohne Server und mit einem festen Datum prüfen.
 
+### Die Schnittstelle zum Datenspeicher
+
+Die Web-Schicht greift auf den Datenspeicher über ein Interface zu (`web.Store`). `*store.Store` erfüllt es. Neben den Abfragen und den Änderungen hat es zwei Methoden für den Betrieb:
+
+| Methode | Aufgabe |
+|---|---|
+| `Ping` | Prüft, dass die Datenbank erreichbar ist. Die Prüfung der Gesundheit unter `/health` braucht nichts weiter. |
+| `VacuumInto` | Schreibt eine Kopie der Datenbank in eine Datei. Der Download des Backups braucht nichts weiter. |
+
+`Ping` liest und schreibt nichts, `VacuumInto` braucht den Schreibzugriff der Datenbank nicht: Die Kopie entsteht mit `VACUUM INTO` und hält den Stand des Moments des Aufrufs.
+
 ### Die Zeit
 
 Die Handler lesen die Uhr nie selbst. Der Konstruktor bekommt eine Funktion (`Options.Now`) und die Zeitzone (`Options.Location`). Der Start in `cmd/easyplan` setzt die Zone einmal global über `time.Local` und gibt sie der Web-Schicht zusätzlich, damit die Handler nicht über die globale Variable gehen müssen.
 
-## Nächster Schritt
+## Die Betriebsdateien
 
-Phase 3 bringt den Betrieb: Container, Compose-Datei, `/health`, der Backup-Button, der Restore und der GitHub-Actions-Workflow. Die Bedienung der App steht unter [Oberfläche](features/oberflaeche.md), der Start unter [Server und Betrieb](features/server.md).
+Der Betrieb steckt in wenigen Dateien ausserhalb der Pakete:
+
+| Datei | Aufgabe |
+|---|---|
+| `Dockerfile` | Baut das Binary ohne CGO und legt es in ein Image ohne Shell und ohne Root. |
+| `compose.yaml` | Beschreibt den Dienst: unbeschreibbares Root-Dateisystem, Port nur auf dem Loopback, Daten in `./data`. |
+| `.github/workflows/ci.yml` | Prüft Formatierung, Code, Tests, Dokumentation und Image. |
+| `.github/dependabot.yml` | Meldet neue Versionen der Abhängigkeiten. |
+
+Der Container ändert am Programm nichts: Er startet dasselbe Binary, das auch direkt läuft. Die Beschreibung steht unter [Betrieb](betrieb.md) und [CI und Dependabot](ci.md).

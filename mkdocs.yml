@@ -1,6 +1,7 @@
 site_name: EasyPlan
 site_description: Self-hosted Mini-App, die Fixkosten zusammenrechnet
 site_author: HeiligerG
+site_url: https://heiligerg.github.io/EasyPlan/
 repo_url: https://github.com/HeiligerG/EasyPlan
 repo_name: HeiligerG/EasyPlan
 edit_uri: ""
@@ -47,6 +48,10 @@ nav:
     - Berechnung: features/berechnung.md
     - Wiederholungen: features/wiederholungen.md
     - Datenspeicher: features/datenspeicher.md
+  - Betrieb:
+    - Betrieb mit Docker: betrieb.md
+    - Backup und Restore: backup.md
+    - CI und Dependabot: ci.md
   - Architekturentscheidungen:
     - Übersicht: adr/index.md
     - "ADR-0001: SQLite ohne CGO": adr/0001-sqlite-ohne-cgo.md
@@ -55,6 +60,9 @@ nav:
     - "ADR-0004: Nächste Zahlung pro Konto": adr/0004-naechste-zahlung-pro-konto.md
     - "ADR-0005: Origin-Prüfung statt CSRF-Token": adr/0005-origin-pruefung-statt-csrf-token.md
     - "ADR-0006: Zeitraum und Monatsgruppen der Timeline": adr/0006-timeline-zeitraum-und-monatsgruppen.md
+    - "ADR-0007: Backup als POST": adr/0007-backup-als-post.md
+    - "ADR-0008: Bind-Default und Image-Override": adr/0008-bind-default-und-image-override.md
+    - "ADR-0009: Update-Policy für Go": adr/0009-dependabot-update-policy-go.md
   - Beitragen: contributing.md
   - Changelog: changelog.md
 
